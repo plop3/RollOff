@@ -1,10 +1,35 @@
-/*Program to open the roof of my Observatory.
-  With 2 buttons Open,Close and an Emergency Stop.
-  With realy supply power
-  There are also 2 limit switches and a control as the telescope and of course the park position.*/
+/*
+  Pilotage automatique de l'abri du telescope
+  Serge CLAUS
+  GPL V3
+  Version 4.0
+  22/10/2018-01/02/2021
 
+  Bouton à clef pour ouverture de l'abri:
+    Position 1: Ouverture des portes seules
+    Position 2: Ouverture de l'abri
+  2 Boutons à l'intérieur:
+    Bouton ouverture des portes
+    Bouton fermeture de l'abri
+  2 boutons arrêt d'urgence (1 intérieur, 1 extérieur)
+  2 capteurs de position de l'abri (ouvert, fermé)
+  1 capteur de position du télescope (parqué soft ou hard)
+  2 capteurs d'ouverture des portes
+  1 barrière IR de sécurité
+  /*********************************/
 
-/*********************************/
+// Pilotage par réseau
+#include <Ethernet.h>
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+};
+IPAddress ip(192, 168, 0, 17);
+IPAddress myDns(192, 168, 0, 254);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 0, 0);
+EthernetServer server(8888);
+EthernetClient client;
+
 #define BAUD_RATE 9600
 
 #define MINRESPONSE 8
@@ -31,8 +56,8 @@ const int FinOuverture   = A3;  // limit switche Open       input
 const int FinFermeture   = A4;  // limit switche Close      input
 const int Telescope_Parc = A5;  // park position switche    input
 const int BoutonRelais   = 10;  // Power supply control     input
-const int FinOuvertureSec= 11;  // limit switche Open security   input
-const int FinFermetureSec= 12;  // limit switche Close security  input
+const int FinOuvertureSec = 11; // limit switche Open security   input
+const int FinFermetureSec = 12; // limit switche Close security  input
 
 int BoutonOpenState      = 0;
 int BoutonCloseState     = 0;
@@ -63,8 +88,8 @@ bool remotePowerRequest = false;
 bool timerActive = false;
 unsigned long t_seconds = 0;    // seconds accumulated since last activity
 unsigned long t_millisec = 0;   // milli-seconds accumulated since last checked
-unsigned long t_prev = 0;       // milli-second count when last checked         
- 
+unsigned long t_prev = 0;       // milli-second count when last checked
+
 const char* ERROR1 = "The controller response message was too long";
 const char* ERROR2 = "The controller failure message was too long";
 const char* ERROR3 = "Command input request is too long";
@@ -77,7 +102,7 @@ const char* ERROR9 = "Request not implemented in controller";
 const char* ERROR10 = "Abort command ignored, roof already stationary";
 const char* ERROR11 = "Observatory power is off, command ignored";
 
-void sendAck(char* val)
+void sendAck(char* val, bool eth)
 {
   char response [64];
   if (strlen(val) > vLen)
@@ -89,10 +114,14 @@ void sendAck(char* val)
     strcat(response, ":");
     strcat(response, val);
     strcat(response, ")");
-    if (Serial.availableForWrite() > 0)
+    if (Serial.availableForWrite() > 0 && !eth)
     {
       Serial.println(response);
       Serial.flush();
+    }
+    if (client.availableForWrite() > 0 && eth) {
+      client.println(response);
+      client.flush();
     }
   }
 }
@@ -117,7 +146,7 @@ void sendNak(const char* errorMsg)
   }
 }
 
-bool parseCommand()           // (command:target:value)
+bool parseCommand(bool eth)           // (command:target:value)
 {
   bool start = false;
   bool eof = false;
@@ -136,10 +165,34 @@ bool parseCommand()           // (command:target:value)
 
   while (!eof && (wait < 20))
   {
-    if (Serial.available() > 0)
+    if (Serial.available() > 0 && !eth)
     {
       Serial.setTimeout(1000);
       recv_count = Serial.readBytes((inpBuf + offset), 1);
+      if (recv_count == 1)
+      {
+        offset++;
+        if (offset >= MAXCOMMAND)
+        {
+          sendNak(ERROR3);
+          return false;
+        }
+        if (inpBuf[offset - 1] == startToken)
+        {
+          start = true;
+        }
+        if (inpBuf[offset - 1] == endToken)
+        {
+          eof = true;
+          inpBuf[offset] = '\0';
+        }
+        continue;
+      }
+    }
+    else if (client.available() > 0 && eth) {
+      Serial.println("OK");
+      //client.setTimeout(1000);
+      recv_count = client.readBytes((inpBuf + offset), 1);
       if (recv_count == 1)
       {
         offset++;
@@ -197,8 +250,8 @@ boolean inactivityCheck()
   if (t_curr >= t_prev)                         // Accumulate millseconds, ignore overflow
     t_millisec += (t_curr - t_prev);
   t_prev = t_curr;
-  t_seconds += t_millisec/1000;                 // Add to seconds accumulated
-  t_millisec = (t_millisec%1000);               // Retain remainder
+  t_seconds += t_millisec / 1000;               // Add to seconds accumulated
+  t_millisec = (t_millisec % 1000);             // Retain remainder
   if (t_seconds >= 60UL * MAX_INACTIVE_TIME)
   {
     t_seconds = 0;
@@ -208,12 +261,12 @@ boolean inactivityCheck()
   return false;
 }
 
-void readUSB()
+void readData(bool eth)
 {
   // See if there is input available from host, read and parse it.
-  if (Serial && (Serial.available() > 0))
+  if ((Serial && (Serial.available() > 0) && !eth) || (client && client.available()>0  && eth))
   {
-    if (parseCommand())
+    if (parseCommand(eth))
     {
       bool connecting = false;
       bool powerOff = false;
@@ -221,7 +274,7 @@ void readUSB()
       t_seconds = 0;
       t_millisec = 0;
       t_prev = millis();
-      
+
       if (strcmp(command, "CON") == 0)
       {
         if (!estAlimente)
@@ -231,7 +284,7 @@ void readUSB()
         timerActive = true;  // Whether power turned on manually, prior session or auto, When connected timer will run
         connecting = true;
         strcpy(value, "V1.1-0");  // For host debug message
-        sendAck(value);
+        sendAck(value, eth);
       }
 
       // Map the general input command term to the local action to be taken
@@ -248,7 +301,7 @@ void readUSB()
           }
           else
           {
-            timerActive = false; 
+            timerActive = false;
             if (estAlimente)
               remotePowerRequest = true;
           }
@@ -279,7 +332,7 @@ void readUSB()
             {
               found = false;
             }
-          }   // End power is on 
+          }   // End power is on
         }     // End roof movement commands
       }       // End set commands
       else
@@ -330,11 +383,12 @@ void readUSB()
       }
       else
       {
-        sendAck(value);
+        sendAck(value, eth);
       }
     }   // end of parseCommand
   }     // end look for USB input
 }
+
 
 /*********************************/
 
@@ -353,13 +407,18 @@ void setup() {
   pinMode(BoutonClose,    INPUT_PULLUP);
   pinMode(BoutonStop,     INPUT_PULLUP);
   pinMode(FinOuverture,   INPUT_PULLUP);
-  pinMode(FinOuvertureSec,INPUT_PULLUP);
+  pinMode(FinOuvertureSec, INPUT_PULLUP);
   pinMode(FinFermeture,   INPUT_PULLUP);
-  pinMode(FinFermetureSec,INPUT_PULLUP);
+  pinMode(FinFermetureSec, INPUT_PULLUP);
   pinMode(Telescope_Parc, INPUT_PULLUP);
   pinMode(BoutonRelais,   INPUT_PULLUP);
 
   Serial.begin(BAUD_RATE);          // Establish serial port. Baud rate to match that in the driver
+  // Réseau
+  // initialize the ethernet device
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
+  // start listening for clients
+  server.begin();
 }
 
 // fin setup
@@ -407,7 +466,7 @@ void position_toit () {       // début des statuts pour le loop
       digitalWrite(RelaisFermeture1,    LOW);
       digitalWrite(RelaisFermeture2,    LOW);
       digitalWrite(RelaisAlimTelescope, HIGH);
-      digitalWrite(RelaisAlimentation, HIGH); // sécuriter pour pas perdre l'alimentation au cas ou
+      digitalWrite(RelaisAlimentation, HIGH); // sécurité pour pas perdre l'alimentation au cas ou
 
       if (BoutonCloseState == LOW && Telescope_ParcState == LOW ) {
         etat = Fermeture;
@@ -452,9 +511,13 @@ void loop()
   BoutonRelaisState = digitalRead (BoutonRelais);
   if (BoutonRelaisState == LOW)
     timerActive = false;                          // If local power button is used disable remote auto power off timer
-  if ((BoutonRelaisState == HIGH) && !estAlimente)  // if power is off & button not pressed check for remote power on. power off caught below
-    if (Serial && Serial.available() > 0)
-      readUSB();                                  // When power is on the readUSB below will catch any remote power request
+  if ((BoutonRelaisState == HIGH) && !estAlimente) { // if power is off & button not pressed check for remote power on. power off caught below
+    if (Serial && Serial.available() > 0) readData(0);
+    client = server.available();
+    if (client) {
+      readData(1);
+    }
+  }                                  // When power is on the readUSB below will catch any remote power request
   if ((BoutonRelaisState == LOW) || remotePowerRequest) {  // If either local or remote power request, change the relay state
     remotePowerRequest = false;
     if (estAlimente == true)
@@ -482,10 +545,12 @@ void loop()
     BoutonStopState = digitalRead (BoutonStop);
     if (timerActive)
       remotePowerRequest = inactivityCheck();
-    if (Serial && Serial.available() > 0)
-      readUSB();
+    if (Serial && Serial.available() > 0) readData(0);
+    client = server.available();
+    if (client && client.available() > 0 ) readData(1);
     position_toit() ;
   }
+
   delay(250);                                      // 0.25 second loop
 
 }// fin loop ou programme
