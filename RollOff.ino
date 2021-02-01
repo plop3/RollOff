@@ -18,19 +18,7 @@
   1 barrière IR de sécurité
   /*********************************/
 
-// Pilotage par réseau
-#include <Ethernet.h>
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-IPAddress ip(192, 168, 0, 17);
-IPAddress myDns(192, 168, 0, 254);
-IPAddress gateway(192, 168, 0, 254);
-IPAddress subnet(255, 255, 0, 0);
-EthernetServer server(8888);
-EthernetClient client;
-
-#define BAUD_RATE 9600
+#define BAUD_RATE 38400
 
 #define MINRESPONSE 8
 #define MAXRESPONSE 127
@@ -38,6 +26,7 @@ EthernetClient client;
 #define MAXCOMMAND  45
 
 #define MAX_INACTIVE_TIME 5  // 20 minutes of inactivity from roof driver before auto shutdown (maximum is 16 hours)
+
 
 /*********************************/
 
@@ -52,9 +41,9 @@ const int RelaisAlimentation  =  9; // Power supply relay   output7
 const int BoutonOpen     = A0;  // Open button              input
 const int BoutonClose    = A1;  // Close button             input
 const int BoutonStop     = A2;  // Stop button              input
-const int FinOuverture   = A3;  // limit switche Open       input
-const int FinFermeture   = A4;  // limit switche Close      input
-const int Telescope_Parc = A5;  // park position switche    input
+const int FinOuverture   = 26;  // limit switche Open       input
+const int FinFermeture   = 27;  // limit switche Close      input
+const int Telescope_Parc = 28;  // park position switche    input
 const int BoutonRelais   = 10;  // Power supply control     input
 const int FinOuvertureSec = 11; // limit switche Open security   input
 const int FinFermetureSec = 12; // limit switche Close security  input
@@ -102,7 +91,7 @@ const char* ERROR9 = "Request not implemented in controller";
 const char* ERROR10 = "Abort command ignored, roof already stationary";
 const char* ERROR11 = "Observatory power is off, command ignored";
 
-void sendAck(char* val, bool eth)
+void sendAck(char* val)
 {
   char response [64];
   if (strlen(val) > vLen)
@@ -114,14 +103,10 @@ void sendAck(char* val, bool eth)
     strcat(response, ":");
     strcat(response, val);
     strcat(response, ")");
-    if (Serial.availableForWrite() > 0 && !eth)
+    if (Serial.availableForWrite() > 0)
     {
       Serial.println(response);
       Serial.flush();
-    }
-    if (client.availableForWrite() > 0 && eth) {
-      client.println(response);
-      client.flush();
     }
   }
 }
@@ -146,7 +131,8 @@ void sendNak(const char* errorMsg)
   }
 }
 
-bool parseCommand(bool eth)           // (command:target:value)
+
+bool parseCommand()           // (command:target:value)
 {
   bool start = false;
   bool eof = false;
@@ -165,34 +151,10 @@ bool parseCommand(bool eth)           // (command:target:value)
 
   while (!eof && (wait < 20))
   {
-    if (Serial.available() > 0 && !eth)
+    if (Serial.available() > 0)
     {
       Serial.setTimeout(1000);
       recv_count = Serial.readBytes((inpBuf + offset), 1);
-      if (recv_count == 1)
-      {
-        offset++;
-        if (offset >= MAXCOMMAND)
-        {
-          sendNak(ERROR3);
-          return false;
-        }
-        if (inpBuf[offset - 1] == startToken)
-        {
-          start = true;
-        }
-        if (inpBuf[offset - 1] == endToken)
-        {
-          eof = true;
-          inpBuf[offset] = '\0';
-        }
-        continue;
-      }
-    }
-    else if (client.available() > 0 && eth) {
-      Serial.println("OK");
-      //client.setTimeout(1000);
-      recv_count = client.readBytes((inpBuf + offset), 1);
       if (recv_count == 1)
       {
         offset++;
@@ -261,12 +223,12 @@ boolean inactivityCheck()
   return false;
 }
 
-void readData(bool eth)
+void readUSB()
 {
   // See if there is input available from host, read and parse it.
-  if ((Serial && (Serial.available() > 0) && !eth) || (client && client.available()>0  && eth))
+  if (Serial && (Serial.available() > 0))
   {
-    if (parseCommand(eth))
+    if (parseCommand())
     {
       bool connecting = false;
       bool powerOff = false;
@@ -284,7 +246,7 @@ void readData(bool eth)
         timerActive = true;  // Whether power turned on manually, prior session or auto, When connected timer will run
         connecting = true;
         strcpy(value, "V1.1-0");  // For host debug message
-        sendAck(value, eth);
+        sendAck(value);
       }
 
       // Map the general input command term to the local action to be taken
@@ -383,7 +345,7 @@ void readData(bool eth)
       }
       else
       {
-        sendAck(value, eth);
+        sendAck(value);
       }
     }   // end of parseCommand
   }     // end look for USB input
@@ -414,11 +376,6 @@ void setup() {
   pinMode(BoutonRelais,   INPUT_PULLUP);
 
   Serial.begin(BAUD_RATE);          // Establish serial port. Baud rate to match that in the driver
-  // Réseau
-  // initialize the ethernet device
-  Ethernet.begin(mac, ip, myDns, gateway, subnet);
-  // start listening for clients
-  server.begin();
 }
 
 // fin setup
@@ -512,11 +469,7 @@ void loop()
   if (BoutonRelaisState == LOW)
     timerActive = false;                          // If local power button is used disable remote auto power off timer
   if ((BoutonRelaisState == HIGH) && !estAlimente) { // if power is off & button not pressed check for remote power on. power off caught below
-    if (Serial && Serial.available() > 0) readData(0);
-    client = server.available();
-    if (client) {
-      readData(1);
-    }
+    if (Serial && Serial.available() > 0) readUSB();
   }                                  // When power is on the readUSB below will catch any remote power request
   if ((BoutonRelaisState == LOW) || remotePowerRequest) {  // If either local or remote power request, change the relay state
     remotePowerRequest = false;
@@ -545,9 +498,7 @@ void loop()
     BoutonStopState = digitalRead (BoutonStop);
     if (timerActive)
       remotePowerRequest = inactivityCheck();
-    if (Serial && Serial.available() > 0) readData(0);
-    client = server.available();
-    if (client && client.available() > 0 ) readData(1);
+    if (Serial && Serial.available() > 0) readUSB();
     position_toit() ;
   }
 
