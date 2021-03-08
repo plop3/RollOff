@@ -46,6 +46,7 @@ TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
 #include <EEPROM.h>
 
 // Ethernet
+#include <SPI.h>
 #include <Ethernet.h>
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
@@ -199,6 +200,7 @@ void setup() {
     flag = 0;
     EEPROM.put(0, flag);
   }
+  Ethernet.init(10);
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
   delay(1000);
 }
