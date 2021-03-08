@@ -202,6 +202,7 @@ void setup() {
   }
   Ethernet.init(10);
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
+  server.begin();
   delay(1000);
 }
 
