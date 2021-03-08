@@ -215,7 +215,7 @@ void readUSB()
           }
           else if (strcmp(target, "LOCKED") == 0)     // Telescope_ParcState
           {
-            if ((TelPark) || !estAlimente)   // Unsafe telescope or power off, either could indicate a lock preventing open/close commands
+            if ((!TelPark) || !estAlimente)   // Unsafe telescope or power off, either could indicate a lock preventing open/close commands
               strcpy(value, "ON");
           }
           else if (strcmp(target, "AUXSTATE") == 0)   // Relais Alimentation
