@@ -45,6 +45,18 @@ TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
 // EEprom
 #include <EEPROM.h>
 
+// Ethernet
+#include <Ethernet.h>
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+};
+IPAddress ip(192, 168, 0, 17);
+IPAddress myDns(192, 168, 0, 254);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
+EthernetServer server(23);
+boolean alreadyConnected = false; // whether or not the client was connected previously
+
 //---------------------------------------CONSTANTES-----------------------------
 // Sorties
 #define ALIM12V A3  // (R3) Mise en marche de l'alimentation 12V de l'abri (vérins portes, capteurs)
@@ -187,10 +199,31 @@ void setup() {
     flag = 0;
     EEPROM.put(0, flag);
   }
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
   delay(1000);
 }
 
 void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    if (!alreadyConnected) {
+      // clear out the input buffer:
+      client.flush();
+      //Serial.println("We have a new client");
+      client.println("Hello, client!");
+      alreadyConnected = true;
+    }
+
+    if (client.available() > 0) {
+      // read the bytes incoming from the client:
+      char thisChar = client.read();
+      // echo the bytes back to the client:
+      server.write(thisChar);
+      // echo the bytes to the server as well:
+      //Serial.write(thisChar);
+    }
+  }
+  
   readIndi();
   timer.run();
   tm1638Info();
