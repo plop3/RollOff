@@ -1,7 +1,7 @@
 /*
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
-  GPL V3
+  GPL V3 
   Version 4.0
   22/10/2018-12/02/2021
 
@@ -37,7 +37,7 @@
 #include <TM1638plus.h>
 #define  STROBE_TM 8 // strobe = GPIO connected to strobe line of module
 #define  CLOCK_TM 9  // clock = GPIO connected to clock line of module
-#define  DIO_TM 10 // data = GPIO connected to data line of module
+#define  DIO_TM 11 // data = GPIO connected to data line of module
 bool high_freq = false; //default false,, If using a high freq CPU > ~100 MHZ set to true.
 //Constructor object (GPIO STB , GPIO CLOCK , GPIO DIO, use high freq MCU)
 TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
@@ -64,7 +64,7 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 #define ALIMTEL A4   // (R4) Alimentation télescope    Relais dans le boitier OnStep)
 #define ALIMMOT A2  // (R2) Alimentation 220V moteur abri
 #define MOTEUR  A1  // (R1) Ouverture/fermeture abri Commande moteur de porte de garage
-#define P11     4   // (R5) Relais 1 porte 1
+#define P11     3   // (R5) Relais 1 porte 1
 #define P12     5   // (R6) Relais 2 porte 1
 #define P21     6   // (R7) Relais 1 porte 2
 #define P22     7   // (R8) Relais 2 porte 2
@@ -80,11 +80,11 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 #define Po2 25       // Capteur porte 2 ouverte
 
 // Boutons
-#define B1CLEF   53    // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
+#define B1CLEF   A12    // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
 #define BARU     22    // Bouton d'arret d'urgence
-//#define BINT     99    // Bouton intérieur d'ouverture des portes (au cas où)
-#define BLUMT    50    // Bouton d'éclairage de la table (rouge)  Interrupteur double
-#define BLUMI    51    // Bouton d'éclairage de l'abri   (rouge)
+//#define BINT   99    // Bouton intérieur d'ouverture des portes (au cas où)
+#define BLUMT    A10    // Bouton d'éclairage de la table (rouge)  Interrupteur double
+#define BLUMI    A11    // Bouton d'éclairage de l'abri   (rouge)
 
 // LEDs
 #define LEDPIN 13
@@ -193,8 +193,9 @@ void setup() {
   if (flag != 1) {
     flag = 1;
     EEPROM.put(0, flag);
-    delay(2000);
-    pinMode(RESET, OUTPUT); digitalWrite(RESET, LOW);
+    tm.displayText("    Rese");
+    delay(3000);
+     pinMode(RESET, OUTPUT); digitalWrite(RESET, LOW);
   }
   else {
     flag = 0;
