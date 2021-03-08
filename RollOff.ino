@@ -202,11 +202,8 @@ void setup() {
   }
   //Ethernet.init(10);
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
-   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-    while (true) {
-      delay(1); // do nothing, no point running without Ethernet hardware
-    }
   }
   if (Ethernet.linkStatus() == LinkOFF) {
     Serial.println("Ethernet cable is not connected.");
@@ -235,7 +232,7 @@ void loop() {
       //Serial.write(thisChar);
     }
   }
-  
+
   readIndi();
   timer.run();
   tm1638Info();
