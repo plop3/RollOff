@@ -384,7 +384,7 @@ void grafPrincipal() {
       break;
     case 105:
       if (PortesOuvert && TBOUTON) ETAPE = 100;
-      else if (PortesOuvert && (Bmem) && TelPark) {
+      else if (PortesOuvert && TelPark) {
         Bmem = false;
         ETAPE = 110;
       }
