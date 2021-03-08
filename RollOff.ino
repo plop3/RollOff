@@ -3,7 +3,7 @@
   Serge CLAUS
   GPL V3
   Version 4.0
-  22/10/2018-01/02/2021
+  22/10/2018-12/02/2021
 
   Bouton à clef pour ouverture de l'abri:
     Position 1: Ouverture des portes seules
@@ -18,490 +18,501 @@
   1 barrière IR de sécurité
   /*********************************/
 
-#define BAUD_RATE 38400
+//---------------------------------------Modules--------------------------------
+#include "RollOffIndi.h"
 
-#define MINRESPONSE 8
-#define MAXRESPONSE 127
-#define MAXERROR 80
-#define MAXCOMMAND  45
+//---------------------------------------PERIPHERIQUES--------------------------
+// Temps maxi de park en secondes
+#define TPSPARK 120
+// Timer
+//#include <SimpleTimer.h>
 
-#define MAX_INACTIVE_TIME 5  // 20 minutes of inactivity from roof driver before auto shutdown (maximum is 16 hours)
+// LEDs neopixel
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+#include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+#endif
 
+// TM1638
+#include <TM1638plus.h>
+#define  STROBE_TM 8 // strobe = GPIO connected to strobe line of module
+#define  CLOCK_TM 9  // clock = GPIO connected to clock line of module
+#define  DIO_TM 10 // data = GPIO connected to data line of module
+bool high_freq = false; //default false,, If using a high freq CPU > ~100 MHZ set to true.
+//Constructor object (GPIO STB , GPIO CLOCK , GPIO DIO, use high freq MCU)
+TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
 
-/*********************************/
+// EEprom
+#include <EEPROM.h>
 
-const int ledRepos            = 13; // LedWaiting           output
-const int RelaisOuverture1    =  4; // Open relay1          output2
-const int RelaisOuverture2    =  5; // Open relay2          output3
-const int RelaisFermeture1    =  6; // Close relay1         output4
-const int RelaisFermeture2    =  7; // Close relay2         output5
-const int RelaisAlimTelescope =  8; // Power I-Optron       output6
-const int RelaisAlimentation  =  9; // Power supply relay   output7
+//---------------------------------------CONSTANTES-----------------------------
+// Sorties
+#define ALIM12V A3  // (R3) Mise en marche de l'alimentation 12V de l'abri (vérins portes, capteurs)
+#define ALIMTEL A4   // (R4) Alimentation télescope    Relais dans le boitier OnStep)
+#define ALIMMOT A2  // (R2) Alimentation 220V moteur abri
+#define MOTEUR  A1  // (R1) Ouverture/fermeture abri Commande moteur de porte de garage
+#define P11     4   // (R5) Relais 1 porte 1
+#define P12     5   // (R6) Relais 2 porte 1
+#define P21     6   // (R7) Relais 1 porte 2
+#define P22     7   // (R8) Relais 2 porte 2
 
-const int BoutonOpen     = A0;  // Open button              input
-const int BoutonClose    = A1;  // Close button             input
-const int BoutonStop     = A2;  // Stop button              input
-const int FinOuverture   = 26;  // limit switche Open       input
-const int FinFermeture   = 27;  // limit switche Close      input
-const int Telescope_Parc = 28;  // park position switche    input
-const int BoutonRelais   = 10;  // Power supply control     input
-const int FinOuvertureSec = 11; // limit switche Open security   input
-const int FinFermetureSec = 12; // limit switche Close security  input
+#define RESET   A13 // Reset de l'arduino
 
-int BoutonOpenState      = 0;
-int BoutonCloseState     = 0;
-int FinOuvertureState    = LOW;
-int FinOuvertureSecState = LOW;
-int FinFermetureState    = LOW;
-int FinFermetureSecState = LOW;
-int Telescope_ParcState  = LOW;
-int BoutonStopState      = 0;
+// Entrées
+#define PARK  A5     // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
 
-bool BoutonRelaisState   = HIGH;    // Changed
+#define AO  49       // Capteur abri ouvert
+#define AF  48       // Capteur abri fermé
+#define Po1 24       // Capteur porte 1 ouverte
+#define Po2 25       // Capteur porte 2 ouverte
 
-//les états possible
+// Boutons
+#define B1CLEF   53    // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
+#define BARU     22    // Bouton d'arret d'urgence
+//#define BINT     99    // Bouton intérieur d'ouverture des portes (au cas où)
+#define BLUMT    50    // Bouton d'éclairage de la table (rouge)  Interrupteur double
+#define BLUMI    51    // Bouton d'éclairage de l'abri   (rouge)
 
-enum {Repos, Ouverture, Ouvert, Fermeture, Fermer};  // At Rest, Opening. Open, Closing, Closed
-int etat = Repos;
+// LEDs
+#define LEDPIN 13
+#define NBLEDS 17  // Nombre total de LEDs (1 LED status + 2 barrettes de 8 LEDs)
 
-bool estAlimente = false;
+// Constantes globales
+#define DELAIPORTES 40000L          // Durée d'ouverture/fermeture des portes (40000L)
+#define DELAIPORTESCAPTEUR  30000L  // Durée d'ouverture/fermeture des portes (40000L)
+#define DELAIMOTEUR 10000L          // Durée d'initialisation du moteur (40000L)
+#define DELAIABRI   11000L          // Durée de déplacement de l'abri (15000L)
+#define INTERVALLEPORTES 8000       // Intervalle entre la fermeture de la porte 1 et de la porte 2
+#define INTERVALLECAPTEUR 6000      // Temps de fermeture/ouverture des portes pour tests capteurs
+#define MOTOFF HIGH                 // Etat pour l'arret du moteur
+#define MOTON !MOTOFF
+#define IMPMOT 300                 // Durée d'impulsion moteur
 
-/*********************************/
-const int cLen = 15;
-const int tLen = 15;
-const int vLen = 127;
-char command[cLen + 1];
-char target[tLen + 1];
-char value[vLen + 1];
-bool remotePowerRequest = false;
-bool timerActive = false;
-unsigned long t_seconds = 0;    // seconds accumulated since last activity
-unsigned long t_millisec = 0;   // milli-seconds accumulated since last checked
-unsigned long t_prev = 0;       // milli-second count when last checked
+//---------------------------------------Macros---------------------------------
+#define AlimTelStatus (!digitalRead(ALIMTEL))    // Etat de l'alimentation télescope
+#define Alim12VStatus (digitalRead(ALIM12V))  // Etat de l'alimentation 12V ATX
+#define PortesOuvert  (!digitalRead(Po1) && !digitalRead(Po2) && Alim12VStatus)
+#define AbriFerme     (!digitalRead(AF))
+#define AbriOuvert    (!digitalRead(AO))
+#define MoteurStatus  (!digitalRead(ALIMMOT))
+#define StartTel      digitalWrite(ALIMTEL, LOW)
+#define StopTel       digitalWrite(ALIMTEL, HIGH)
+#define StartMot      digitalWrite(ALIMMOT, LOW)
+#define StopMot       digitalWrite(ALIMMOT, MOTOFF)
+#define Stop12V       digitalWrite(ALIM12V, LOW)
+#define Start12V      digitalWrite(ALIM12V, HIGH)
+#define TelPark       !digitalRead(PARK)
+//#define TelPark true
+#define OuvreP1       digitalWrite(P12,LOW);digitalWrite(P11,HIGH)
+#define OuvreP2       digitalWrite(P22,LOW);digitalWrite(P21,HIGH)
+#define FermeP1       digitalWrite(P11,LOW);digitalWrite(P12,HIGH)
+#define FermeP2       digitalWrite(P21,LOW);digitalWrite(P22,HIGH)
+#define Bclef         !digitalRead(B1CLEF)
+#define Baru          !digitalRead(BARU)
 
-const char* ERROR1 = "The controller response message was too long";
-const char* ERROR2 = "The controller failure message was too long";
-const char* ERROR3 = "Command input request is too long";
-const char* ERROR4 = "Invalid command syntax, both start and end tokens missing";
-const char* ERROR5 = "Invalid command syntax, no start token found";
-const char* ERROR6 = "Invalid command syntax, no end token found";
-const char* ERROR7 = "Roof controller unable to parse command";
-const char* ERROR8 = "Command must map to either set a relay or get a switch";
-const char* ERROR9 = "Request not implemented in controller";
-const char* ERROR10 = "Abort command ignored, roof already stationary";
-const char* ERROR11 = "Observatory power is off, command ignored";
+#define BAPPUILONG  3000  //Durée pour un appui long sur le bouton
+//---------------------------------------Activation------------------------------------------
+// Timer
+#include <SimpleTimer.h>
+SimpleTimer timer;
 
-void sendAck(char* val)
-{
-  char response [64];
-  if (strlen(val) > vLen)
-    sendNak(ERROR1);
-  else
-  {
-    strcpy(response, "(ACK:");
-    strcat(response, target);
-    strcat(response, ":");
-    strcat(response, val);
-    strcat(response, ")");
-    if (Serial.availableForWrite() > 0)
-    {
-      Serial.println(response);
-      Serial.flush();
-    }
-  }
-}
+// LEDs APA106
+Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ400);
+/* 0:   Status abri
+   1-8: Eclairage table
+   9-16:Eclairage intérieur
+*/
 
-void sendNak(const char* errorMsg)
-{
-  char buffer[128];
-  if (strlen(errorMsg) > MAXERROR)
-    sendNak(ERROR2);
-  else
-  {
-    strcpy(buffer, "(NAK:ERROR:");
-    strcat(buffer, value);
-    strcat(buffer, ":");
-    strcat(buffer, errorMsg);
-    strcat(buffer, ")");
-    if (Serial.availableForWrite() > 0)
-    {
-      Serial.println(buffer);
-      Serial.flush();
-    }
-  }
-}
+// ------------------------------------Variables globales------------------------------------
+int ETAPE = 0;  // Etape du grafcet (0 étape initiale, 100 étape principale)
+int ETARU = 0;  // Etape du grafcet d'ARU
+int ETASURV = 0;  // Etape du grafcet de surveillance
+int ETARET = 0;   // Etape de retour pour les sous programmes
 
+int tmButton;         // Bouton(s) du TM1638
+int countM;           // Nombre d'essais ouverture/fermeture
 
-bool parseCommand()           // (command:target:value)
-{
-  bool start = false;
-  bool eof = false;
-  int recv_count = 0;
-  int wait = 0;
-  int offset = 0;
-  char startToken = '(';
-  char endToken = ')';
-  const int bLen = 127;
-  char inpBuf[bLen + 1];
+bool TEMPO = false; // Temporisation
+bool TBOUTON = false; // Temporisation bouton
+bool INIT = false;    // Abri initialisé
+bool DEPL = false;    // Abri en cours de déplacement
+bool FERM = false;    // Portes en cours de fermeture
+bool SURV = false;    // Activation du graphe de surveillance
+bool CMDARU = false;  // Commande interne d'arret d'urgence
+bool AUTO = false;    // Abri en mode automatique (commande reçue à distance)
+bool Bmem = false;    // Mémorisation du bouton
 
-  memset(inpBuf, 0, sizeof(inpBuf));
-  memset(command, 0, sizeof(command));
-  memset(target, 0, sizeof(target));
-  memset(value, 0, sizeof(value));
-
-  while (!eof && (wait < 20))
-  {
-    if (Serial.available() > 0)
-    {
-      Serial.setTimeout(1000);
-      recv_count = Serial.readBytes((inpBuf + offset), 1);
-      if (recv_count == 1)
-      {
-        offset++;
-        if (offset >= MAXCOMMAND)
-        {
-          sendNak(ERROR3);
-          return false;
-        }
-        if (inpBuf[offset - 1] == startToken)
-        {
-          start = true;
-        }
-        if (inpBuf[offset - 1] == endToken)
-        {
-          eof = true;
-          inpBuf[offset] = '\0';
-        }
-        continue;
-      }
-    }
-    wait++;
-    delay(100);
-  }
-
-  if (!start || !eof)
-  {
-    if (!start && !eof)
-      sendNak(ERROR4);
-    else if (!start)
-      sendNak(ERROR5);
-    else if (!eof)
-      sendNak(ERROR6);
-    return false;
-  }
-  else
-  {
-    strcpy(command, strtok(inpBuf, "(:"));
-    strcpy(target, strtok(NULL, ":"));
-    strcpy(value, strtok(NULL, ")"));
-    if ((strlen(command) >= 3) && (strlen(target) >= 1) && (strlen(value) >= 1))
-    {
-      return true;
-    }
-    else
-    {
-      sendNak(ERROR7);
-      return false;
-    }
-  }
-}
-
-boolean inactivityCheck()
-{
-  unsigned long t_curr = millis();
-  if (t_curr >= t_prev)                         // Accumulate millseconds, ignore overflow
-    t_millisec += (t_curr - t_prev);
-  t_prev = t_curr;
-  t_seconds += t_millisec / 1000;               // Add to seconds accumulated
-  t_millisec = (t_millisec % 1000);             // Retain remainder
-  if (t_seconds >= 60UL * MAX_INACTIVE_TIME)
-  {
-    t_seconds = 0;
-    t_millisec = 0;
-    return true;
-  }
-  return false;
-}
-
-void readUSB()
-{
-  // See if there is input available from host, read and parse it.
-  if (Serial && (Serial.available() > 0))
-  {
-    if (parseCommand())
-    {
-      bool connecting = false;
-      bool powerOff = false;
-      bool found = true;
-      t_seconds = 0;
-      t_millisec = 0;
-      t_prev = millis();
-
-      if (strcmp(command, "CON") == 0)
-      {
-        if (!estAlimente)
-        {
-          remotePowerRequest = true;
-        }
-        timerActive = true;  // Whether power turned on manually, prior session or auto, When connected timer will run
-        connecting = true;
-        strcpy(value, "V1.1-0");  // For host debug message
-        sendAck(value);
-      }
-
-      // Map the general input command term to the local action to be taken
-      // SET: OPEN, CLOSE, ABORT, AUXSET
-      else if (strcmp(command, "SET") == 0)
-      {
-        if (strcmp(target, "AUXSET") == 0)      // Relais Alimentation
-        {
-          if (strcmp(value, "ON") == 0)
-          {
-            timerActive = true;
-            if (!estAlimente)
-              remotePowerRequest = true;
-          }
-          else
-          {
-            timerActive = false;
-            if (estAlimente)
-              remotePowerRequest = true;
-          }
-        }
-        else
-        {
-          if (!estAlimente)
-          {
-            powerOff = true;
-          }
-
-          // Power is on
-          else
-          {
-            if (strcmp(target, "OPEN") == 0)            // BoutonOpenState
-            {
-              BoutonOpenState = LOW;
-            }
-            else if (strcmp(target, "CLOSE") == 0)      // BoutonCloseState
-            {
-              BoutonCloseState = LOW;
-            }
-            else if (strcmp(target, "ABORT") == 0)      // BoutonStopState
-            {
-              BoutonStopState = LOW;
-            }
-            else
-            {
-              found = false;
-            }
-          }   // End power is on
-        }     // End roof movement commands
-      }       // End set commands
-      else
-      {
-        // Handle requests to obtain the status of switches
-        // GET: OPENED, CLOSED, LOCKED, AUXSTATE
-        strcpy(value, "OFF");
-
-        if (strcmp(command, "GET") == 0)
-        {
-          if (strcmp(target, "OPENED") == 0)          // FinOuvertureState
-          {
-            if (FinOuvertureState == LOW)
-              strcpy(value, "ON");
-          }
-          else if (strcmp(target, "CLOSED") == 0)     // FinFermetureState
-          {
-            if (FinFermetureState == LOW)
-              strcpy(value, "ON");
-          }
-          else if (strcmp(target, "LOCKED") == 0)     // Telescope_ParcState
-          {
-            if ((Telescope_ParcState == HIGH) || !estAlimente)   // Unsafe telescope or power off, either could indicate a lock preventing open/close commands
-              strcpy(value, "ON");
-          }
-          else if (strcmp(target, "AUXSTATE") == 0)   // Relais Alimentation
-          {
-            if (estAlimente)
-              strcpy(value, "ON");
-          }
-          else
-          {
-            found = false;
-          }
-        }
-      }
-
-      /*
-         See if the command was recognized
-      */
-      if (!connecting && !found)
-      {
-        sendNak(ERROR8);
-      }
-      else if (powerOff)
-      {
-        sendNak(ERROR11);
-      }
-      else
-      {
-        sendAck(value);
-      }
-    }   // end of parseCommand
-  }     // end look for USB input
-}
-
-
-/*********************************/
-
-// le N° des connection et fonction
-
+//---------------------------------------SETUP-----------------------------------------------
 void setup() {
-  pinMode(ledRepos,           OUTPUT);
-  pinMode(RelaisOuverture1,   OUTPUT);
-  pinMode(RelaisOuverture2,   OUTPUT);
-  pinMode(RelaisFermeture1,   OUTPUT);
-  pinMode(RelaisFermeture2,   OUTPUT);
-  pinMode(RelaisAlimentation, OUTPUT);
-  pinMode(RelaisAlimTelescope, OUTPUT);
+  // TM1638
+  tm.displayBegin();
+  tm.brightness(0);
+  tm.displayText("    Init");
+  // Initialisation des ports série
+  Serial.begin(9600);  // Connexion à AstroPi (port Indi)
 
-  pinMode(BoutonOpen,     INPUT_PULLUP);
-  pinMode(BoutonClose,    INPUT_PULLUP);
-  pinMode(BoutonStop,     INPUT_PULLUP);
-  pinMode(FinOuverture,   INPUT_PULLUP);
-  pinMode(FinOuvertureSec, INPUT_PULLUP);
-  pinMode(FinFermeture,   INPUT_PULLUP);
-  pinMode(FinFermetureSec, INPUT_PULLUP);
-  pinMode(Telescope_Parc, INPUT_PULLUP);
-  pinMode(BoutonRelais,   INPUT_PULLUP);
+  // Initialisation des relais
+  digitalWrite(ALIM12V, HIGH); pinMode(ALIM12V, OUTPUT);
+  digitalWrite(ALIMTEL, HIGH); pinMode(ALIMTEL, OUTPUT);
+  digitalWrite(ALIMMOT, HIGH); pinMode(ALIMMOT, OUTPUT);
+  digitalWrite(MOTEUR, HIGH); pinMode(MOTEUR, OUTPUT);
+  digitalWrite(P11, HIGH); pinMode(P11, OUTPUT);
+  digitalWrite(P12, HIGH); pinMode(P12, OUTPUT);
+  digitalWrite(P21, HIGH); pinMode(P21, OUTPUT);
+  digitalWrite(P22, HIGH); pinMode(P22, OUTPUT);
+  digitalWrite(ALIMMOT, MOTOFF); // Coupure alimentation moteur abri
 
-  Serial.begin(BAUD_RATE);          // Establish serial port. Baud rate to match that in the driver
+  // Activation des entrées (capteurs...)
+  pinMode(AO, INPUT_PULLUP);
+  pinMode(AF, INPUT_PULLUP);
+  pinMode(Po1, INPUT_PULLUP);
+  pinMode(Po2, INPUT_PULLUP);
+  pinMode(B1CLEF, INPUT_PULLUP);
+  pinMode(BARU, INPUT_PULLUP);
+  pinMode(BLUMT, INPUT_PULLUP);
+  pinMode(BLUMI, INPUT_PULLUP);
+  pinMode(PARK, INPUT); // TODO voir pour input_pullup (modifier code auxiliaire)
+  //timer.setInterval(1000,debug);
+
+  // 2e démarrage après coupure secteur pour activer la carte réseau
+  byte flag;
+  EEPROM.get(0, flag);
+  if (flag != 1) {
+    flag = 1;
+    EEPROM.put(0, flag);
+    delay(2000);
+    pinMode(RESET, OUTPUT); digitalWrite(RESET, LOW);
+  }
+  else {
+    flag = 0;
+    EEPROM.put(0, flag);
+  }
+  delay(1000);
 }
 
-// fin setup
+void loop() {
+  readIndi();
+  timer.run();
+  tm1638Info();
+  // Lecture des boutons du TM1638
+  tmButton = tm.readButtons();  // Lecture des boutons du TM1638
+  // Gestion de l'abri Grafcet
+  grafPrincipal();
+  grafARU();
+  grafSurv();
+}
 
-void position_toit () {       // début des statuts pour le loop
-  switch (etat)  {           // début du switch avec les possibilté
-    case Repos:                                                                 // At Rest
-      digitalWrite(ledRepos, HIGH);  //  LedWaiting
-      digitalWrite(RelaisOuverture1,   LOW);
-      digitalWrite(RelaisOuverture2,   LOW);
-      digitalWrite(RelaisFermeture1,   LOW);
-      digitalWrite(RelaisFermeture2,   LOW);
+void tempo(long duree) {
+  // Temporisateur
+  TEMPO = false;
+  timer.setTimeout(duree, timertemp);
+}
+void timertemp() {
+  TEMPO = true;
+}
 
 
-      if (BoutonOpenState == LOW && Telescope_ParcState == LOW ) {
-        etat = Ouverture;
-        delay(30);
-      }
-      else if (BoutonCloseState == LOW && FinFermetureState == HIGH ) {
-        etat = Fermeture;
-        delay(30);
-      }
-      break;
-    case Ouverture:                                                            // Opening
-      digitalWrite(ledRepos, LOW);          //  LedWaiting
-      digitalWrite(RelaisOuverture1,   HIGH);
-      digitalWrite(RelaisOuverture2,   HIGH);
-      digitalWrite(RelaisFermeture1,    LOW);
-      digitalWrite(RelaisFermeture2,    LOW);
-      digitalWrite(RelaisAlimTelescope, LOW);
+void Btempo() {
+  // Temporisation appui long sur le bouton
+  TBOUTON = false;
+  timer.setTimeout(BAPPUILONG, timerBouton);
+}
+void timerBouton() {
+  if (Bclef) TBOUTON = true;
+}
 
-      if (FinOuvertureState == LOW || FinOuvertureSecState == LOW ) {
-        etat = Ouvert;
-        delay(30);
-      }
-      else if (Telescope_ParcState == HIGH || BoutonStopState == LOW) {
-        etat = Repos;
-        delay(30);
-      }
-      break;
-    case Ouvert:                                                                // Open
-      digitalWrite(ledRepos, HIGH);  //  LedWaiting
-      digitalWrite(RelaisOuverture1,    LOW);
-      digitalWrite(RelaisOuverture2,    LOW);
-      digitalWrite(RelaisFermeture1,    LOW);
-      digitalWrite(RelaisFermeture2,    LOW);
-      digitalWrite(RelaisAlimTelescope, HIGH);
-      digitalWrite(RelaisAlimentation, HIGH); // sécurité pour pas perdre l'alimentation au cas ou
+int OldEtape = 9999;
+void tm1638Info() {
+  // Affiche l'étape en cours et l'état des E/S. Si étape 100, affiches d'autres infos TODO (heure ? T°/H% ?)
+  if (ETAPE != OldEtape) {
+    tm.displayText("        ");
+    if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
+    OldEtape = ETAPE;
+  }
+  // Affiche l'état de l'abri
+  //Abri ouvert,  Abri fermé, Portes ouvertes,  Alim12V,  Alim télescope, Alim moteur,  Commande moteur,  Park
+  int LedState = 256 * (AbriFerme + AbriOuvert * 2 + PortesOuvert * 4 + Alim12VStatus * 8 + AlimTelStatus * 16 + MoteurStatus * 32 + !digitalRead(MOTEUR) * 64 + TelPark * 128);
+  if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
+  //Serial.println(tmButton);
+  //delay(500);
+}
 
-      if (BoutonCloseState == LOW && Telescope_ParcState == LOW ) {
-        etat = Fermeture;
-        delay(30);
-      }
-      break;
-    case Fermeture:                                                             // Closing
-      digitalWrite(ledRepos, LOW);  //  LedWaiting
-      digitalWrite(RelaisOuverture1,    LOW);
-      digitalWrite(RelaisOuverture2,    LOW);
-      digitalWrite(RelaisFermeture1,   HIGH);
-      digitalWrite(RelaisFermeture2,   HIGH);
-      digitalWrite(RelaisAlimTelescope, LOW);
-
-      if (FinFermetureState == LOW || FinFermetureSecState == LOW) {
-        etat = Fermer;
-        delay(30);
-      }
-      else if (Telescope_ParcState == HIGH || BoutonStopState == LOW) {
-        etat = Repos;
-        delay(30);
-
+void grafARU() {
+  switch (ETARU) {
+    case 0:
+      if (Baru || CMDARU) {  // Arret d'urgence
+        // Mise à zéro de toutes les sorties
+        //Stop12V;
+        digitalWrite(ALIMTEL, HIGH);
+        digitalWrite(ALIMMOT, HIGH);
+        digitalWrite(MOTEUR, HIGH);
+        digitalWrite(P11, HIGH);
+        digitalWrite(P12, HIGH);
+        digitalWrite(P21, HIGH);
+        digitalWrite(P22, HIGH);
+        digitalWrite(ALIMMOT, MOTOFF); // Coupure alimentation moteur abri
+        // Blocage du graphe principal
+        ETAPE = 999;
+        ETARU = 1;
+        INIT = false;
+        SURV = false;
       }
       break;
-    case Fermer:                                                                 // Closed
-      digitalWrite(ledRepos, LOW);  //  LedWaiting
-      digitalWrite(RelaisOuverture1,    LOW);
-      digitalWrite(RelaisOuverture2,    LOW);
-      digitalWrite(RelaisFermeture1,    LOW);
-      digitalWrite(RelaisFermeture2,    LOW);
-      digitalWrite(RelaisAlimTelescope, LOW);
-
-      etat = Repos;
+    case 1:
+      if (!CMDARU) ETARU = 2;
+      else if (CMDARU) ETARU = 10;
       break;
-  } //fin switch
-
-}// fin void
-
-void loop()
-{
-  // Handle any change request to power state
-  BoutonRelaisState = digitalRead (BoutonRelais);
-  if (BoutonRelaisState == LOW)
-    timerActive = false;                          // If local power button is used disable remote auto power off timer
-  if ((BoutonRelaisState == HIGH) && !estAlimente) { // if power is off & button not pressed check for remote power on. power off caught below
-    if (Serial && Serial.available() > 0) readUSB();
-  }                                  // When power is on the readUSB below will catch any remote power request
-  if ((BoutonRelaisState == LOW) || remotePowerRequest) {  // If either local or remote power request, change the relay state
-    remotePowerRequest = false;
-    if (estAlimente == true)
-    {
-      estAlimente = false;
-      digitalWrite (RelaisAlimentation, LOW);      // Power off
-    }
-    else
-    {
-      estAlimente = true;
-      digitalWrite (RelaisAlimentation, HIGH);     // Power on
-    }
-    delay (250);
+    case 2:
+      if (!Baru) {
+        Start12V;
+        delay(3000);
+        //OuvreP1;
+        //tempo(INTERVALLEPORTES);
+        ETARU = 0;
+        ETAPE = 0;
+      }
+      break;
+    case 10:
+      CMDARU = false;
+      if (Baru) ETARU = 2;
+      break;
   }
 
-  // début du programme des fonctions
-  if (estAlimente) {
-    BoutonOpenState = digitalRead (BoutonOpen) ;
-    BoutonCloseState = digitalRead (BoutonClose) ;
-    FinOuvertureState = digitalRead (FinOuverture) ;
-    FinOuvertureSecState = digitalRead (FinOuvertureSec) ;
-    FinFermetureState = digitalRead (FinFermeture) ;
-    FinFermetureSecState = digitalRead (FinFermetureSec) ;
-    Telescope_ParcState = digitalRead (Telescope_Parc);
-    BoutonStopState = digitalRead (BoutonStop);
-    if (timerActive)
-      remotePowerRequest = inactivityCheck();
-    if (Serial && Serial.available() > 0) readUSB();
-    position_toit() ;
+}
+
+void grafSurv() {
+  if (SURV) {
+    switch (ETASURV) {
+      case 0:
+        if ((FERM && !TelPark) + (DEPL && (!TelPark || !PortesOuvert))) ETASURV = 1;
+        else if (!DEPL && !FERM && (!AbriOuvert && ! AbriFerme) && INIT) ETASURV = 1;
+        break;
+      case 1:
+        tempo(300);
+        ETASURV = 2;
+        break;
+      case 2:
+        if ((FERM && TelPark) || (DEPL && PortesOuvert && TelPark)) ETASURV = 0;
+        else {
+          CMDARU = true;
+          ETASURV = 0;
+        }
+    }
   }
+}
 
-  delay(250);                                      // 0.25 second loop
+void grafPrincipal() {
+  switch (ETAPE) {
+    case 0: //
+      INIT = false;
+      SURV = true;
+      if (PortesOuvert) StartMot;
+      if ((AbriOuvert && !AbriFerme) || (AbriFerme && !AbriOuvert)) ETAPE = 2;
+      else if ((!AbriOuvert && !AbriFerme) || (AbriOuvert && AbriFerme)) {
+        ETARET = 1;
+        ETAPE = 200;
+      }
+      break;
+    case 1:
+      if (TelPark && !AbriOuvert && !AbriFerme && PortesOuvert) {
+        ETARET = 2;
+        ETAPE = 300;
+      }
+      else if ((!TelPark) || (AbriOuvert && AbriFerme)) CMDARU = true;
+      break;
+    case 2: // Abri dans une position inconnue
+      INIT = true;
+      if (AbriFerme) ETAPE = 3;
+      else if (AbriOuvert) ETAPE = 30;
+      break;
+    case 3:
+      ETAPE = 100;
+      SURV = false;
+      break;
+    case 30:
+      StartTel;
+      ETAPE = 100;
+      break;
+    case 100:
+      if (Bclef || tmButton == 128) {
+        Bmem = true;
+        AUTO = false;
+        Btempo();
+        ETAPE = 102;
+      }
+      else if (BoutonOpenState || BoutonCloseState) {
+        AUTO = true;
+        ETAPE = 102;
+      }
+      else if (BoutonStopState) CMDARU=true;
+      /*
+        else if (cmdIndi) {
+        AUTO = true;
+        OuvreAbri
+        FermeAbri
+        }
+      */
+      break;
+    //-----------------------------------------
+    case 102: // Abri fermé, portes fermées
+      if (AbriFerme && !PortesOuvert && (Bmem || BoutonOpenState)) {
+        //Bmem = false;
+        ETAPE = 104;
+      }
+      // TODO Abri ouvert, portes ouvertes, commande Indi "ouvre" -> 150
+      else if (AbriFerme && PortesOuvert && (Bmem|| BoutonOpenState)) {
+        Bmem = false;
+        ETAPE = 120;
+      }
+      // TODO Abri ouvert, télescope non parqué, fermeture -> Park télescope  (160)
+      else if (AbriOuvert && TelPark && (Bmem || BoutonCloseState)) {
+        Bmem = false;
+        ETAPE = 130;
+      }
+      // TODO Portes fermées ou Abri ouvert et commande ouvre -> Retour à l'étape 100
+      // Abri fermé, portes ouvertes
+      else if (!AbriOuvert && ! AbriFerme && PortesOuvert && Bmem) ETAPE = 140;
+      break;
+    //-----------------------------------------
+    case 104:
+      ETAPE = 200;
+      ETARET = 105;
+      break;
+    case 105:
+      if (PortesOuvert && TBOUTON) ETAPE = 100;
+      else if (PortesOuvert && (Bmem) && TelPark) {
+        Bmem = false;
+        ETAPE = 110;
+      }
+      break;
+    case 110:
+      ETAPE = 300;
+      ETARET = 100;
+      break;
+    case 120:
+      tempo(BAPPUILONG + 500);
+      ETAPE = 121;
+      break;
+    case 121:
+      if (TEMPO && !TBOUTON) ETAPE = 110;
+      else if (TEMPO && TBOUTON) ETAPE = 131;
+      break;
+    case 130:
+      ETAPE = 300;
+      ETARET = 131;
+      break;
+    case 131:
+      if (AbriFerme) ETAPE = 132;
+      break;
+    case 132:
+      FERM = true;
+      FermeP2;
+      tempo(INTERVALLEPORTES);
+      ETAPE = 133;
+      break;
+    case 133:
+      if (TEMPO) ETAPE = 134;
+      break;
+    case 134:
+      FermeP1;
+      StopMot;
+      tempo(DELAIPORTES);
+      ETAPE = 135;
+      break;
+    case 135:
+      if (TEMPO) ETAPE = 136;
+      break;
+    case 136:
+      FERM = false;
+      SURV = false;
+      //Stop12V;
+      ETAPE = 100;
+      break;
+    // Macro Ouvre portes
+    case 200:
+      if (PortesOuvert) ETAPE = 222; //201;
+      else if (!PortesOuvert) ETAPE = 220;
+      break;
+    case 220:
+      OuvreP1;
+      tempo(INTERVALLEPORTES);
+      ETAPE = 221;
+      break;
+    case 221:
+      if (TEMPO) ETAPE = 222;
+      break;
+    case 222:
+      StartMot;
+      OuvreP2;
+      if (AUTO) tempo(DELAIPORTES);
+      ETAPE = 223;
+      break;
+    case 223:
+      if (PortesOuvert && !AUTO) ETAPE = ETARET;
+      else if (PortesOuvert && AUTO && TEMPO) ETAPE = ETARET;
+      break;
 
-}// fin loop ou programme
+    // Deplace abri
+    case 300:
+      if (PortesOuvert && TelPark && (AbriOuvert || AbriFerme)) ETAPE = 301;
+      else if (!PortesOuvert || !TelPark) ETAPE = 308;
+      else if (!AbriOuvert && !AbriFerme && PortesOuvert && TelPark) ETAPE = 350;
+      break;
+    case 301:
+      countM = 0;
+      StopTel;
+      DEPL = 1;
+      if (MoteurStatus) ETAPE = 304;
+      else if (!MoteurStatus) ETAPE = 302;
+      break;
+    case 302:
+      StartMot;
+      tempo(DELAIMOTEUR);
+      ETAPE = 303;
+      break;
+    case 303:
+      if (TEMPO) ETAPE = 304;
+      break;
+    case 304:
+      digitalWrite(MOTEUR, LOW);
+      tempo(IMPMOT);
+      ETAPE = 305;
+      break;
+    case 305:
+      if (TEMPO) {
+        digitalWrite(MOTEUR, HIGH);
+        countM++;
+        tempo(5000);
+        ETAPE = 306;
+      }
+      break;
+    case 306:
+      if (TEMPO && countM > 4 && (AbriOuvert || AbriFerme)) ETAPE = 308;
+      else if (TEMPO && !AbriOuvert && !AbriFerme) {
+        if (AUTO) tempo(DELAIABRI);
+        ETAPE = 307;
+      }
+      else if (TEMPO && (AbriOuvert || AbriFerme) && countM < 5) ETAPE = 304;
+      break;
+    case 307:
+      if ((AbriOuvert || AbriFerme) && ((AUTO && TEMPO) || !AUTO)) ETAPE = 308;
+      break;
+    case 308:
+      DEPL = 0;
+      // AlimMot=0
+      if (AbriFerme) ETAPE = ETARET;
+      else if (AbriOuvert) ETAPE = 309;
+      break;
+    case 309:
+      StartTel;
+      ETAPE = ETARET;
+      break;
+    case 350:
+      tempo(DELAIMOTEUR);
+      ETAPE = 351;
+      break;
+    case 351:
+      if (TEMPO) ETAPE = 304;
+      break;
+  }
+}
