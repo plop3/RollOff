@@ -120,9 +120,6 @@ bool parseCommand()           // (command:target:value)
 #define estAlimente true
 void readUSB()
 {
-  BoutonOpenState=false;
-  BoutonCloseState=false;
-  BoutonStopState=false;
   // See if there is input available from host, read and parse it.
   if (Serial && (Serial.available() > 0))
   {

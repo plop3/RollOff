@@ -356,17 +356,19 @@ void grafPrincipal() {
     //-----------------------------------------
     case 102: // Abri fermé, portes fermées
       if (AbriFerme && !PortesOuvert && (Bmem || BoutonOpenState)) {
-        //Bmem = false;
+        BoutonOpenState = false;
         ETAPE = 104;
       }
       // TODO Abri ouvert, portes ouvertes, commande Indi "ouvre" -> 150
       else if (AbriFerme && PortesOuvert && (Bmem|| BoutonOpenState)) {
         Bmem = false;
+        BoutonOpenState=false;
         ETAPE = 120;
       }
       // TODO Abri ouvert, télescope non parqué, fermeture -> Park télescope  (160)
       else if (AbriOuvert && TelPark && (Bmem || BoutonCloseState)) {
         Bmem = false;
+        BoutonCloseState=false;
         ETAPE = 130;
       }
       // TODO Portes fermées ou Abri ouvert et commande ouvre -> Retour à l'étape 100
