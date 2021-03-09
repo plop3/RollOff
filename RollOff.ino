@@ -454,7 +454,7 @@ void grafPrincipal() {
       break;
     case 223:
       if (PortesOuvert && !AUTO) ETAPE = ETARET;
-      else if (PortesOuvert && AUTO && !TEMPO) ETAPE = ETARET;
+      else if (PortesOuvert && AUTO && TEMPO) ETAPE = ETARET;
       break;
 
     // Deplace abri
@@ -500,7 +500,7 @@ void grafPrincipal() {
       else if (TEMPO && (AbriOuvert || AbriFerme) && countM < 5) ETAPE = 304;
       break;
     case 307:
-      if ((AbriOuvert || AbriFerme) && ((AUTO && !TEMPO) || !AUTO)) ETAPE = 308;
+      if ((AbriOuvert || AbriFerme) && ((AUTO && TEMPO) || !AUTO)) ETAPE = 308;
       break;
     case 308:
       DEPL = 0;
