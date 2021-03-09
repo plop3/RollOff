@@ -33,7 +33,7 @@
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
-/*
+
 // TM1638
 #include <TM1638plus.h>
 #define  STROBE_TM 8 // strobe = GPIO connected to strobe line of module
@@ -42,11 +42,11 @@
 bool high_freq = false; //default false,, If using a high freq CPU > ~100 MHZ set to true.
 //Constructor object (GPIO STB , GPIO CLOCK , GPIO DIO, use high freq MCU)
 TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
-*/
+
+/*
 // EEprom
 #include <EEPROM.h>
 
-/*
 // Ethernet
 #include <SPI.h>
 #include <Ethernet.h>
@@ -72,7 +72,7 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 #define P21     6   // (R7) Relais 1 porte 2
 #define P22     7   // (R8) Relais 2 porte 2
 
-#define RESET   A13 // Reset de l'arduino
+//#define RESET   A13 // Reset de l'arduino
 
 // Entrées
 #define PARK  A5     // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
@@ -161,9 +161,9 @@ bool Bmem = false;    // Mémorisation du bouton
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
   // TM1638
-  //tm.displayBegin();
-  //tm.brightness(0);
-  //tm.displayText("    Init");
+  tm.displayBegin();
+  tm.brightness(0);
+  tm.displayText("    Init");
   // Initialisation des ports série
   Serial.begin(9600);  // Connexion à AstroPi (port Indi)
 
@@ -189,62 +189,14 @@ void setup() {
   pinMode(BLUMI, INPUT_PULLUP);
   pinMode(PARK, INPUT); // TODO voir pour input_pullup (modifier code auxiliaire)
   //timer.setInterval(1000,debug);
-
-/*
-  // 2e démarrage après coupure secteur pour activer la carte réseau
-  byte flag;
-  EEPROM.get(0, flag);
-  if (flag != 1) {
-    flag = 1;
-    EEPROM.put(0, flag);
-    //tm.displayText("    Rese");
-    delay(3000);
-     pinMode(RESET, OUTPUT); digitalWrite(RESET, LOW);
-  }
-  else {
-    flag = 0;
-    EEPROM.put(0, flag);
-  }
-  //Ethernet.init(10);
-  Ethernet.begin(mac, ip, myDns, gateway, subnet);
-  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-  }
-  if (Ethernet.linkStatus() == LinkOFF) {
-    Serial.println("Ethernet cable is not connected.");
-  }
-  server.begin();
-  delay(1000);
-  */
 }
 
 void loop() {
-  /*
-  EthernetClient client = server.available();
-  if (client) {
-    if (!alreadyConnected) {
-      // clear out the input buffer:
-      client.flush();
-      //Serial.println("We have a new client");
-      client.println("Hello, client!");
-      alreadyConnected = true;
-    }
-
-    if (client.available() > 0) {
-      // read the bytes incoming from the client:
-      char thisChar = client.read();
-      // echo the bytes back to the client:
-      server.write(thisChar);
-      // echo the bytes to the server as well:
-      //Serial.write(thisChar);
-    }
-  }
-*/
-  readIndi();
+   readIndi();
   timer.run();
-  //tm1638Info();
+  tm1638Info();
   // Lecture des boutons du TM1638
-  //tmButton = tm.readButtons();  // Lecture des boutons du TM1638
+  tmButton = tm.readButtons();  // Lecture des boutons du TM1638
   // Gestion de l'abri Grafcet
   grafPrincipal();
   grafARU();
@@ -274,14 +226,14 @@ int OldEtape = 9999;
 void tm1638Info() {
   // Affiche l'étape en cours et l'état des E/S. Si étape 100, affiches d'autres infos TODO (heure ? T°/H% ?)
   if (ETAPE != OldEtape) {
-    //tm.displayText("        ");
-    //if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
+    tm.displayText("        ");
+    if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
     OldEtape = ETAPE;
   }
   // Affiche l'état de l'abri
   //Abri ouvert,  Abri fermé, Portes ouvertes,  Alim12V,  Alim télescope, Alim moteur,  Commande moteur,  Park
   int LedState = 256 * (AbriFerme + AbriOuvert * 2 + PortesOuvert * 4 + Alim12VStatus * 8 + AlimTelStatus * 16 + MoteurStatus * 32 + !digitalRead(MOTEUR) * 64 + TelPark * 128);
-  //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
+  if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
   //Serial.println(tmButton);
   //delay(500);
 }
@@ -502,7 +454,7 @@ void grafPrincipal() {
       break;
     case 223:
       if (PortesOuvert && !AUTO) ETAPE = ETARET;
-      else if (PortesOuvert && AUTO && TEMPO) ETAPE = ETARET;
+      else if (PortesOuvert && AUTO && !TEMPO) ETAPE = ETARET;
       break;
 
     // Deplace abri
@@ -548,7 +500,7 @@ void grafPrincipal() {
       else if (TEMPO && (AbriOuvert || AbriFerme) && countM < 5) ETAPE = 304;
       break;
     case 307:
-      if ((AbriOuvert || AbriFerme) && ((AUTO && TEMPO) || !AUTO)) ETAPE = 308;
+      if ((AbriOuvert || AbriFerme) && ((AUTO && !TEMPO) || !AUTO)) ETAPE = 308;
       break;
     case 308:
       DEPL = 0;
