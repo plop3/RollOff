@@ -33,6 +33,7 @@
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
+/*
 // TM1638
 #include <TM1638plus.h>
 #define  STROBE_TM 8 // strobe = GPIO connected to strobe line of module
@@ -41,10 +42,11 @@
 bool high_freq = false; //default false,, If using a high freq CPU > ~100 MHZ set to true.
 //Constructor object (GPIO STB , GPIO CLOCK , GPIO DIO, use high freq MCU)
 TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
-
+*/
 // EEprom
 #include <EEPROM.h>
 
+/*
 // Ethernet
 #include <SPI.h>
 #include <Ethernet.h>
@@ -57,6 +59,7 @@ IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 EthernetServer server(23);
 boolean alreadyConnected = false; // whether or not the client was connected previously
+*/
 
 //---------------------------------------CONSTANTES-----------------------------
 // Sorties
@@ -158,9 +161,9 @@ bool Bmem = false;    // Mémorisation du bouton
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
   // TM1638
-  tm.displayBegin();
-  tm.brightness(0);
-  tm.displayText("    Init");
+  //tm.displayBegin();
+  //tm.brightness(0);
+  //tm.displayText("    Init");
   // Initialisation des ports série
   Serial.begin(9600);  // Connexion à AstroPi (port Indi)
 
@@ -187,13 +190,14 @@ void setup() {
   pinMode(PARK, INPUT); // TODO voir pour input_pullup (modifier code auxiliaire)
   //timer.setInterval(1000,debug);
 
+/*
   // 2e démarrage après coupure secteur pour activer la carte réseau
   byte flag;
   EEPROM.get(0, flag);
   if (flag != 1) {
     flag = 1;
     EEPROM.put(0, flag);
-    tm.displayText("    Rese");
+    //tm.displayText("    Rese");
     delay(3000);
      pinMode(RESET, OUTPUT); digitalWrite(RESET, LOW);
   }
@@ -211,9 +215,11 @@ void setup() {
   }
   server.begin();
   delay(1000);
+  */
 }
 
 void loop() {
+  /*
   EthernetClient client = server.available();
   if (client) {
     if (!alreadyConnected) {
@@ -233,12 +239,12 @@ void loop() {
       //Serial.write(thisChar);
     }
   }
-
+*/
   readIndi();
   timer.run();
-  tm1638Info();
+  //tm1638Info();
   // Lecture des boutons du TM1638
-  tmButton = tm.readButtons();  // Lecture des boutons du TM1638
+  //tmButton = tm.readButtons();  // Lecture des boutons du TM1638
   // Gestion de l'abri Grafcet
   grafPrincipal();
   grafARU();
@@ -268,14 +274,14 @@ int OldEtape = 9999;
 void tm1638Info() {
   // Affiche l'étape en cours et l'état des E/S. Si étape 100, affiches d'autres infos TODO (heure ? T°/H% ?)
   if (ETAPE != OldEtape) {
-    tm.displayText("        ");
-    if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
+    //tm.displayText("        ");
+    //if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
     OldEtape = ETAPE;
   }
   // Affiche l'état de l'abri
   //Abri ouvert,  Abri fermé, Portes ouvertes,  Alim12V,  Alim télescope, Alim moteur,  Commande moteur,  Park
   int LedState = 256 * (AbriFerme + AbriOuvert * 2 + PortesOuvert * 4 + Alim12VStatus * 8 + AlimTelStatus * 16 + MoteurStatus * 32 + !digitalRead(MOTEUR) * 64 + TelPark * 128);
-  if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
+  //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
   //Serial.println(tmButton);
   //delay(500);
 }
