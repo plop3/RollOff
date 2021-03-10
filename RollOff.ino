@@ -182,6 +182,9 @@ void setup() {
   pinMode(BLUMI, INPUT_PULLUP);
   pinMode(PARK, INPUT); // TODO voir pour input_pullup (modifier code auxiliaire)
   //timer.setInterval(1000,debug);
+  barre(0,0); // Extinction des barres de LEDs
+  barre(1,0);
+  barre(2,0);
 }
 
 void loop() {
@@ -201,16 +204,11 @@ void eclairages() {
   if (Etat != BLUMIO) {
     BLUMIO = Etat;
     if (Etat) {
-      for (byte i =  8 ; i < (16); i++) {
-        pixels.setPixelColor(i, pixels.Color(0, 128, 0));
-      }
-      pixels.show();
+      barre(1, 128);
+
     }
     else {
-      for (byte i =  8 ; i < (16); i++) {
-        pixels.setPixelColor(i, pixels.Color(0, 0, 0));
-      }
-      pixels.show();
+      barre(1, 128);
     }
     delay(100); // Anti-rebonds
   }
@@ -218,21 +216,21 @@ void eclairages() {
   if (Etat != BLUMTO) {
     BLUMTO = Etat;
     if (Etat) {
-      for (byte i =  8 ; i < (16); i++) {
-        pixels.setPixelColor(i, pixels.Color(0, 128, 0));
-      }
-      pixels.show();
+      barre(1, 128);
     }
     else {
-      for (byte i =  8 ; i < (16); i++) {
-        pixels.setPixelColor(i, pixels.Color(0, 0, 0));
-      }
-      pixels.show();
+      barre(2, 0);
     }
     delay(100); // Anti-rebonds
   }
 }
 
+void barre(byte barre, byte valeur) {
+  for (byte i = 8 * barre; i < (8 + 8 * barre); i++) {
+    pixels.setPixelColor(i, pixels.Color(valeur, 0, 0));
+    pixels.show();
+  }
+}
 void tempo(long duree) {
   // Temporisateur
   TEMPO = false;
@@ -514,6 +512,7 @@ void grafPrincipal() {
       else if (!AbriOuvert && !AbriFerme && PortesOuvert && TelPark) ETAPE = 350;
       break;
     case 301:
+    barre(0,128);
       countM = 0;
       StopTel;
       DEPL = 1;
@@ -555,10 +554,12 @@ void grafPrincipal() {
     case 308:
       DEPL = 0;
       // AlimMot=0
+      barre(0,0);
       if (AbriFerme) ETAPE = ETARET;
       else if (AbriOuvert) ETAPE = 309;
       break;
     case 309:
+    barre(0,0);
       StartTel;
       ETAPE = ETARET;
       break;
