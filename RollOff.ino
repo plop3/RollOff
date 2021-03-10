@@ -32,8 +32,15 @@
 #ifdef __AVR__
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
+#define LEDPIN 13
+#define NBLEDS 24  // Nombre total de LEDs (3 barrettes de 8 LEDs)
+Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ400);
+/* 0:   Status abri
+   1-8: Eclairage table
+   9-16:Eclairage intérieur
+  // Afficheur OLED SSD1306
+*/
 
-// Afficheur OLED SSD1306
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -71,10 +78,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 //#define BINT   99    // Bouton intérieur d'ouverture des portes (au cas où)
 #define BLUMT    A10    // Bouton d'éclairage de la table (rouge)  Interrupteur double
 #define BLUMI    A11    // Bouton d'éclairage de l'abri   (rouge)
-
-// LEDs
-#define LEDPIN 13
-#define NBLEDS 17  // Nombre total de LEDs (1 LED status + 2 barrettes de 8 LEDs)
 
 // Constantes globales
 #define DELAIPORTES 40000L          // Durée d'ouverture/fermeture des portes (40000L)
@@ -115,13 +118,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #include <SimpleTimer.h>
 SimpleTimer timer;
 
-// LEDs APA106
-Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ400);
-/* 0:   Status abri
-   1-8: Eclairage table
-   9-16:Eclairage intérieur
-*/
-
 // ------------------------------------Variables globales------------------------------------
 int ETAPE = 0;  // Etape du grafcet (0 étape initiale, 100 étape principale)
 int ETARU = 0;  // Etape du grafcet d'ARU
@@ -141,8 +137,16 @@ bool CMDARU = false;  // Commande interne d'arret d'urgence
 bool AUTO = false;    // Abri en mode automatique (commande reçue à distance)
 bool Bmem = false;    // Mémorisation du bouton
 
+bool BLUMTO = false;  // Dernier etat du bouton d'éclairage table
+bool BLUMIO = false;  // Dernier etat du bouton d'éclairage intérieur
+
+
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
+  // LEDs APA106
+  pixels.begin();
+  pixels.clear();
+  pixels.show();
   //SSD1306
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
   //display.display();
@@ -184,10 +188,49 @@ void loop() {
   readIndi();
   timer.run();
   ssd1306Info();
+  eclairages();
   // Gestion de l'abri Grafcet
   grafPrincipal();
   grafARU();
   grafSurv();
+}
+
+void eclairages() {
+  // Gestion des écairages
+  bool Etat = digitalRead(BLUMI);
+  if (Etat != BLUMIO) {
+    BLUMIO = Etat;
+    if (Etat) {
+      for (byte i =  8 ; i < (16); i++) {
+        pixels.setPixelColor(i, pixels.Color(0, 128, 0));
+      }
+      pixels.show();
+    }
+    else {
+      for (byte i =  8 ; i < (16); i++) {
+        pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+      }
+      pixels.show();
+    }
+    delay(100); // Anti-rebonds
+  }
+  Etat = digitalRead(BLUMT);
+  if (Etat != BLUMTO) {
+    BLUMTO = Etat;
+    if (Etat) {
+      for (byte i =  8 ; i < (16); i++) {
+        pixels.setPixelColor(i, pixels.Color(0, 128, 0));
+      }
+      pixels.show();
+    }
+    else {
+      for (byte i =  8 ; i < (16); i++) {
+        pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+      }
+      pixels.show();
+    }
+    delay(100); // Anti-rebonds
+  }
 }
 
 void tempo(long duree) {
@@ -219,7 +262,7 @@ void ssd1306Info() {
   display.println(ETAPE);
   display.setTextSize(2);
   //display.setCursor(0,18);
-  display.println(TelPark ? "Park":"Non P.");
+  display.println(TelPark ? "Park" : "Non P.");
   //tm.displayText("        ");
   //if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
   //   OldEtape = ETAPE;
@@ -235,9 +278,9 @@ void ssd1306Info() {
   if (Alim12VStatus) display.print("12V ");
   if (MoteurStatus) display.print("M ");
   if (!digitalRead(MOTEUR)) display.print("*");
-   //display.print("AO AF P1 P2 12V M * "); 
- 
-  
+  //display.print("AO AF P1 P2 12V M * ");
+
+
 
   //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
   //Serial.println(tmButton);
