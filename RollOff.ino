@@ -208,7 +208,7 @@ void eclairages() {
 
     }
     else {
-      barre(1, 128);
+      barre(1, 0);
     }
     delay(100); // Anti-rebonds
   }
