@@ -34,7 +34,7 @@
 #endif
 #define LEDPIN 13
 #define NBLEDS 24  // Nombre total de LEDs (3 barrettes de 8 LEDs)
-Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ400);
+Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 /* 0:   Status abri
    1-8: Eclairage table
    9-16:Eclairage intérieur
@@ -76,8 +76,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define B1CLEF   A12    // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
 #define BARU     22    // Bouton d'arret d'urgence
 //#define BINT   99    // Bouton intérieur d'ouverture des portes (au cas où)
-#define BLUMT    A10    // Bouton d'éclairage de la table (rouge)  Interrupteur double
-#define BLUMI    A11    // Bouton d'éclairage de l'abri   (rouge)
+#define BLUMT    A11    // Bouton d'éclairage de la table (rouge)  Interrupteur double
+#define BLUMI    A10    // Bouton d'éclairage de l'abri   (rouge)
 
 // Constantes globales
 #define DELAIPORTES 40000L          // Durée d'ouverture/fermeture des portes (40000L)
@@ -137,8 +137,8 @@ bool CMDARU = false;  // Commande interne d'arret d'urgence
 bool AUTO = false;    // Abri en mode automatique (commande reçue à distance)
 bool Bmem = false;    // Mémorisation du bouton
 
-bool BLUMTO = false;  // Dernier etat du bouton d'éclairage table
-bool BLUMIO = false;  // Dernier etat du bouton d'éclairage intérieur
+bool BLUMTO = !digitalRead(BLUMT);  // Dernier etat du bouton d'éclairage table
+bool BLUMIO = !digitalRead(BLUMI);  // Dernier etat du bouton d'éclairage intérieur
 
 
 //---------------------------------------SETUP-----------------------------------------------
@@ -191,7 +191,7 @@ void loop() {
   readIndi();
   timer.run();
   ssd1306Info();
-  //eclairages();
+  eclairages();
   // Gestion de l'abri Grafcet
   grafPrincipal();
   grafARU();
@@ -212,11 +212,11 @@ void eclairages() {
     }
     delay(100); // Anti-rebonds
   }
-  Etat = digitalRead(BLUMT);
+  Etat = !digitalRead(BLUMT);
   if (Etat != BLUMTO) {
     BLUMTO = Etat;
     if (Etat) {
-      barre(1, 128);
+      barre(2, 128);
     }
     else {
       barre(2, 0);
