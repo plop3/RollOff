@@ -1,7 +1,7 @@
 /*
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
-  GPL V3 
+  GPL V3
   Version 4.0
   22/10/2018-12/02/2021
 
@@ -33,33 +33,16 @@
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
-
-// TM1638
-#include <TM1638plus.h>
-#define  STROBE_TM 8 // strobe = GPIO connected to strobe line of module
-#define  CLOCK_TM 9  // clock = GPIO connected to clock line of module
-#define  DIO_TM 11 // data = GPIO connected to data line of module
-bool high_freq = false; //default false,, If using a high freq CPU > ~100 MHZ set to true.
-//Constructor object (GPIO STB , GPIO CLOCK , GPIO DIO, use high freq MCU)
-TM1638plus tm(STROBE_TM, CLOCK_TM , DIO_TM, high_freq);
-
-/*
-// EEprom
-#include <EEPROM.h>
-
-// Ethernet
+// Afficheur OLED SSD1306
 #include <SPI.h>
-#include <Ethernet.h>
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-IPAddress ip(192, 168, 0, 17);
-IPAddress myDns(192, 168, 0, 254);
-IPAddress gateway(192, 168, 0, 254);
-IPAddress subnet(255, 255, 255, 0);
-EthernetServer server(23);
-boolean alreadyConnected = false; // whether or not the client was connected previously
-*/
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET     -1
+#define SCREEN_ADDRESS 0x3C
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //---------------------------------------CONSTANTES-----------------------------
 // Sorties
@@ -160,10 +143,16 @@ bool Bmem = false;    // Mémorisation du bouton
 
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
-  // TM1638
-  tm.displayBegin();
-  tm.brightness(0);
-  tm.displayText("    Init");
+  //SSD1306
+  display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
+  //display.display();
+  display.clearDisplay();
+  display.setTextSize(3);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.cp437(true);
+  display.write("Init");
+  display.display();
   // Initialisation des ports série
   Serial.begin(9600);  // Connexion à AstroPi (port Indi)
 
@@ -192,11 +181,9 @@ void setup() {
 }
 
 void loop() {
-   readIndi();
+  readIndi();
   timer.run();
-  tm1638Info();
-  // Lecture des boutons du TM1638
-  tmButton = tm.readButtons();  // Lecture des boutons du TM1638
+  ssd1306Info();
   // Gestion de l'abri Grafcet
   grafPrincipal();
   grafARU();
@@ -222,20 +209,40 @@ void timerBouton() {
   if (Bclef) TBOUTON = true;
 }
 
-int OldEtape = 9999;
-void tm1638Info() {
+//int OldEtape = 9999;
+void ssd1306Info() {
   // Affiche l'étape en cours et l'état des E/S. Si étape 100, affiches d'autres infos TODO (heure ? T°/H% ?)
-  if (ETAPE != OldEtape) {
-    tm.displayText("        ");
-    if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
-    OldEtape = ETAPE;
-  }
+  //if (ETAPE != OldEtape) {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(3);
+  display.println(ETAPE);
+  display.setTextSize(2);
+  //display.setCursor(0,18);
+  display.println(TelPark ? "Park":"Non P.");
+  //tm.displayText("        ");
+  //if (ETAPE != 100) tm.displayIntNum(ETAPE, 0);
+  //   OldEtape = ETAPE;
+  // }
   // Affiche l'état de l'abri
   //Abri ouvert,  Abri fermé, Portes ouvertes,  Alim12V,  Alim télescope, Alim moteur,  Commande moteur,  Park
-  int LedState = 256 * (AbriFerme + AbriOuvert * 2 + PortesOuvert * 4 + Alim12VStatus * 8 + AlimTelStatus * 16 + MoteurStatus * 32 + !digitalRead(MOTEUR) * 64 + TelPark * 128);
-  if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
+  //int LedState = 256 * (AbriFerme + AbriOuvert * 2 + PortesOuvert * 4 + Alim12VStatus * 8 + AlimTelStatus * 16 + MoteurStatus * 32 + !digitalRead(MOTEUR) * 64 + TelPark * 128);
+  display.setTextSize(1);
+  if (AbriOuvert) display.print("AO ");
+  if (AbriFerme) display.print("AF ");
+  if (!digitalRead(Po1)) display.print("P1 ");
+  if (!digitalRead(Po2)) display.print("P2 ");
+  if (Alim12VStatus) display.print("12V ");
+  if (MoteurStatus) display.print("M ");
+  if (!digitalRead(MOTEUR)) display.print("*");
+   //display.print("AO AF P1 P2 12V M * "); 
+ 
+  
+
+  //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
   //Serial.println(tmButton);
   //delay(500);
+  display.display();
 }
 
 void grafARU() {
