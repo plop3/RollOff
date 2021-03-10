@@ -182,16 +182,16 @@ void setup() {
   pinMode(BLUMI, INPUT_PULLUP);
   pinMode(PARK, INPUT); // TODO voir pour input_pullup (modifier code auxiliaire)
   //timer.setInterval(1000,debug);
-  barre(0,0); // Extinction des barres de LEDs
-  barre(1,0);
-  barre(2,0);
+  barre(0, 0); // Extinction des barres de LEDs
+  barre(1, 0);
+  barre(2, 0);
 }
 
 void loop() {
   readIndi();
   timer.run();
   ssd1306Info();
-  eclairages();
+  //eclairages();
   // Gestion de l'abri Grafcet
   grafPrincipal();
   grafARU();
@@ -225,12 +225,13 @@ void eclairages() {
   }
 }
 
-void barre(byte barre, byte valeur) {
-  for (byte i = 8 * barre; i < (8 + 8 * barre); i++) {
+void barre(byte barreau, byte valeur) {
+  for (byte i = 8 * barreau; i < (8 + 8 * barreau); i++) {
     pixels.setPixelColor(i, pixels.Color(valeur, 0, 0));
-    pixels.show();
   }
+  pixels.show();
 }
+
 void tempo(long duree) {
   // Temporisateur
   TEMPO = false;
@@ -512,7 +513,7 @@ void grafPrincipal() {
       else if (!AbriOuvert && !AbriFerme && PortesOuvert && TelPark) ETAPE = 350;
       break;
     case 301:
-    barre(0,128);
+      barre(0, 128);
       countM = 0;
       StopTel;
       DEPL = 1;
@@ -554,12 +555,12 @@ void grafPrincipal() {
     case 308:
       DEPL = 0;
       // AlimMot=0
-      barre(0,0);
+      barre(0, 0);
       if (AbriFerme) ETAPE = ETARET;
       else if (AbriOuvert) ETAPE = 309;
       break;
     case 309:
-    barre(0,0);
+      barre(0, 0);
       StartTel;
       ETAPE = ETARET;
       break;
