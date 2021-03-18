@@ -124,7 +124,6 @@ int ETARU = 0;  // Etape du grafcet d'ARU
 int ETASURV = 0;  // Etape du grafcet de surveillance
 int ETARET = 0;   // Etape de retour pour les sous programmes
 
-int tmButton;         // Bouton(s) du TM1638
 int countM;           // Nombre d'essais ouverture/fermeture
 
 bool TEMPO = false; // Temporisation
@@ -282,8 +281,6 @@ void ssd1306Info() {
 
 
   //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
-  //Serial.println(tmButton);
-  //delay(500);
   display.display();
 }
 
@@ -384,7 +381,7 @@ void grafPrincipal() {
       ETAPE = 100;
       break;
     case 100:
-      if (Bclef || tmButton == 128) {
+      if (Bclef) {
         Bmem = true;
         AUTO = false;
         Btempo();
