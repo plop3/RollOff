@@ -84,7 +84,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define DELAIPORTESCAPTEUR  30000L  // Durée d'ouverture/fermeture des portes (40000L)
 #define DELAIMOTEUR 10000L          // Durée d'initialisation du moteur (40000L)
 #define DELAIABRI   11000L          // Durée de déplacement de l'abri (15000L)
-#define INTERVALLEPORTES 8000       // Intervalle entre la fermeture de la porte 1 et de la porte 2
+#define INTERVALLEPORTES 12000       // Intervalle entre la fermeture de la porte 1 et de la porte 2
 #define INTERVALLECAPTEUR 6000      // Temps de fermeture/ouverture des portes pour tests capteurs
 #define MOTOFF HIGH                 // Etat pour l'arret du moteur
 #define MOTON !MOTOFF
@@ -103,7 +103,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define StopMot       digitalWrite(ALIMMOT, MOTOFF)
 #define Stop12V       digitalWrite(ALIM12V, LOW)
 #define Start12V      digitalWrite(ALIM12V, HIGH)
-#define TelPark       !digitalRead(PARK)
+#define TelPark       digitalRead(PARK)
 //#define TelPark true
 #define OuvreP1       digitalWrite(P12,LOW);digitalWrite(P11,HIGH)
 #define OuvreP2       digitalWrite(P22,LOW);digitalWrite(P21,HIGH)
@@ -277,10 +277,13 @@ void ssd1306Info() {
   if (MoteurStatus) display.print("M ");
   if (!digitalRead(MOTEUR)) display.print("*");
   //display.print("AO AF P1 P2 12V M * ");
+<<<<<<< HEAD
+=======
 
 
 
   //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
+>>>>>>> 45460bfd104a74d0dbd417937855d7b9bdd91069
   display.display();
 }
 
@@ -402,19 +405,26 @@ void grafPrincipal() {
       */
       break;
     //-----------------------------------------
-    case 102: // Abri fermé, portes fermées
+    case 102: // Abri fermé, portes fermées -> Ouverure des portes, ouverture de l'abri
       if (AbriFerme && !PortesOuvert && (Bmem || BoutonOpenState)) {
         BoutonOpenState = false;
         Bmem = false;
         ETAPE = 104;
       }
-      // TODO Abri ouvert, portes ouvertes, commande Indi "ouvre" -> 150
+      // TODO Abri ouvert, portes ouvertes, commande Indi "ouvre" ->  150
+      // Abri fermé, portes ouvertes -> Ouverture de l'abri
       else if (AbriFerme && PortesOuvert && (Bmem || BoutonOpenState)) {
         Bmem = false;
         BoutonOpenState = false;
         ETAPE = 120;
       }
-      // TODO Abri ouvert, télescope non parqué, fermeture -> Park télescope  (160)
+      // Abri ouvert, télescope non parqué, On ignore la commande  (100)
+      else if (AbriOuvert && !TelPark && (Bmem || BoutonCloseState)) {
+        Bmem = false;
+	BoutonCloseState = false;
+	ETAPE = 100;
+      }
+      // Abri ouvert et télescope parqué -> Fermeture de l'abri	
       else if (AbriOuvert && TelPark && (Bmem || BoutonCloseState)) {
         Bmem = false;
         BoutonCloseState = false;
