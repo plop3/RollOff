@@ -124,7 +124,6 @@ int ETARU = 0;  // Etape du grafcet d'ARU
 int ETASURV = 0;  // Etape du grafcet de surveillance
 int ETARET = 0;   // Etape de retour pour les sous programmes
 
-int tmButton;         // Bouton(s) du TM1638
 int countM;           // Nombre d'essais ouverture/fermeture
 
 bool TEMPO = false; // Temporisation
@@ -278,12 +277,13 @@ void ssd1306Info() {
   if (MoteurStatus) display.print("M ");
   if (!digitalRead(MOTEUR)) display.print("*");
   //display.print("AO AF P1 P2 12V M * ");
+<<<<<<< HEAD
+=======
 
 
 
   //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
-  //Serial.println(tmButton);
-  //delay(500);
+>>>>>>> 45460bfd104a74d0dbd417937855d7b9bdd91069
   display.display();
 }
 
@@ -384,7 +384,7 @@ void grafPrincipal() {
       ETAPE = 100;
       break;
     case 100:
-      if (Bclef || tmButton == 128) {
+      if (Bclef) {
         Bmem = true;
         AUTO = false;
         Btempo();
@@ -405,19 +405,26 @@ void grafPrincipal() {
       */
       break;
     //-----------------------------------------
-    case 102: // Abri fermé, portes fermées
+    case 102: // Abri fermé, portes fermées -> Ouverure des portes, ouverture de l'abri
       if (AbriFerme && !PortesOuvert && (Bmem || BoutonOpenState)) {
         BoutonOpenState = false;
         Bmem = false;
         ETAPE = 104;
       }
-      // TODO Abri ouvert, portes ouvertes, commande Indi "ouvre" -> 150
+      // TODO Abri ouvert, portes ouvertes, commande Indi "ouvre" ->  150
+      // Abri fermé, portes ouvertes -> Ouverture de l'abri
       else if (AbriFerme && PortesOuvert && (Bmem || BoutonOpenState)) {
         Bmem = false;
         BoutonOpenState = false;
         ETAPE = 120;
       }
-      // TODO Abri ouvert, télescope non parqué, fermeture -> Park télescope  (160)
+      // Abri ouvert, télescope non parqué, On ignore la commande  (100)
+      else if (AbriOuvert && !TelPark && (Bmem || BoutonCloseState)) {
+        Bmem = false;
+	BoutonCloseState = false;
+	ETAPE = 100;
+      }
+      // Abri ouvert et télescope parqué -> Fermeture de l'abri	
       else if (AbriOuvert && TelPark && (Bmem || BoutonCloseState)) {
         Bmem = false;
         BoutonCloseState = false;
