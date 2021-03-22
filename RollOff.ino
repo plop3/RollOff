@@ -276,15 +276,7 @@ void ssd1306Info() {
   if (Alim12VStatus) display.print("12V ");
   if (MoteurStatus) display.print("M ");
   if (!digitalRead(MOTEUR)) display.print("*");
-  //display.print("AO AF P1 P2 12V M * ");
-<<<<<<< HEAD
-=======
-
-
-
-  //if (ETAPE != 100) tm.setLEDs(LedState); else tm.setLEDs(0);
->>>>>>> 45460bfd104a74d0dbd417937855d7b9bdd91069
-  display.display();
+    display.display();
 }
 
 void grafARU() {
@@ -358,7 +350,7 @@ void grafPrincipal() {
       SURV = true;
       if (PortesOuvert) StartMot;
       if ((AbriOuvert && !AbriFerme) || (AbriFerme && !AbriOuvert)) ETAPE = 2;
-      else if ((!AbriOuvert && !AbriFerme) || (AbriOuvert && AbriFerme)) {
+      else {
         ETARET = 1;
         ETAPE = 200;
       }
@@ -368,9 +360,9 @@ void grafPrincipal() {
         ETARET = 2;
         ETAPE = 300;
       }
-      else if ((!TelPark) || (AbriOuvert && AbriFerme)) CMDARU = true;
+      else CMDARU = true;
       break;
-    case 2: // Abri dans une position inconnue
+    case 2: // Abri dans une position connue
       INIT = true;
       if (AbriFerme) ETAPE = 3;
       else if (AbriOuvert) ETAPE = 30;
@@ -381,9 +373,10 @@ void grafPrincipal() {
       break;
     case 30:
       StartTel;
+      SURV = true;
       ETAPE = 100;
       break;
-    case 100:
+    case 100: // Attente d'une commande
       if (Bclef) {
         Bmem = true;
         AUTO = false;
@@ -396,13 +389,6 @@ void grafPrincipal() {
         TBOUTON = false;
       }
       else if (BoutonStopState) CMDARU = true;
-      /*
-        else if (cmdIndi) {
-        AUTO = true;
-        OuvreAbri
-        FermeAbri
-        }
-      */
       break;
     //-----------------------------------------
     case 102: // Abri fermé, portes fermées -> Ouverure des portes, ouverture de l'abri
@@ -421,10 +407,10 @@ void grafPrincipal() {
       // Abri ouvert, télescope non parqué, On ignore la commande  (100)
       else if (AbriOuvert && !TelPark && (Bmem || BoutonCloseState)) {
         Bmem = false;
-	BoutonCloseState = false;
-	ETAPE = 100;
+        BoutonCloseState = false;
+        ETAPE = 100;
       }
-      // Abri ouvert et télescope parqué -> Fermeture de l'abri	
+      // Abri ouvert et télescope parqué -> Fermeture de l'abri
       else if (AbriOuvert && TelPark && (Bmem || BoutonCloseState)) {
         Bmem = false;
         BoutonCloseState = false;
@@ -432,7 +418,7 @@ void grafPrincipal() {
       }
       // TODO Portes fermées ou Abri ouvert et commande ouvre -> Retour à l'étape 100
       // Abri fermé, portes ouvertes
-      else if (!AbriOuvert && ! AbriFerme && PortesOuvert && Bmem) ETAPE = 140;
+      else if (!AbriOuvert && ! AbriFerme && PortesOuvert && Bmem) CMDARU = true;
       break;
     //-----------------------------------------
     case 104:
@@ -492,7 +478,7 @@ void grafPrincipal() {
     // Macro Ouvre portes
     case 200:
       if (PortesOuvert) ETAPE = 222; //201;
-      else if (!PortesOuvert) ETAPE = 220;
+      else ETAPE = 220;
       break;
     case 220:
       OuvreP1;
