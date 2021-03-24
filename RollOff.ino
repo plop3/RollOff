@@ -103,7 +103,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define StopMot       digitalWrite(ALIMMOT, MOTOFF)
 #define Stop12V       digitalWrite(ALIM12V, LOW)
 #define Start12V      digitalWrite(ALIM12V, HIGH)
-#define TelPark       digitalRead(PARK)
+#define TelPark       analogRead(PARK)>400 //digitalRead(PARK)
 //#define TelPark true
 #define OuvreP1       digitalWrite(P12,LOW);digitalWrite(P11,HIGH)
 #define OuvreP2       digitalWrite(P22,LOW);digitalWrite(P21,HIGH)
@@ -326,7 +326,7 @@ void grafSurv() {
   if (SURV) {
     switch (ETASURV) {
       case 0:
-        if ((FERM && !TelPark) + (DEPL && (!TelPark || !PortesOuvert))) ETASURV = 1;
+        if ((FERM && !TelPark && false) || (DEPL && (!TelPark || !PortesOuvert))) ETASURV = 1;
         else if (!DEPL && !FERM && (!AbriOuvert && ! AbriFerme) && INIT) ETASURV = 1;
         break;
       case 1:
