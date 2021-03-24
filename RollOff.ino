@@ -306,7 +306,7 @@ void grafARU() {
       break;
     case 2:
       if (!Baru) {
-        Start12V;
+        //Start12V;
         delay(3000);
         //OuvreP1;
         //tempo(INTERVALLEPORTES);
