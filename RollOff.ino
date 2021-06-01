@@ -22,8 +22,8 @@
 #include "RollOffIndi.h" // Gestion de l'abri par Indi (https://github.com/wotalota/indi-rolloffino)
 
 //---------------------------------------PERIPHERIQUES--------------------------
-// Temps maxi de park en secondes
-#define TPSPARK 120
+// Temps maxi de park en millisecondes
+#define TPSPARK 180000
 
 // LEDs neopixel
 #include <Adafruit_NeoPixel.h>
@@ -56,6 +56,16 @@ SimpleTimer timer;
 
 // EEPROM
 #include <EEPROM.h>
+
+// ESP-Link
+#include <ELClient.h>
+#include <ELClientSocket.h>
+#include <ELClientCmd.h>
+#include <ELClientMqtt.h>
+ELClient esp(&Serial3, &Serial3);
+//ELClientCmd cmd(&esp);
+ELClientMqtt mqtt(&esp);
+
 
 //---------------------------------------CONSTANTES-----------------------------
 // Sorties
@@ -95,6 +105,8 @@ SimpleTimer timer;
 #define MOTON !MOTOFF
 #define IMPMOT 300                 // Durée d'impulsion moteur
 
+#define DELAIMQTT 30000UL            // Rafraichissement MQTT
+
 //---------------------------------------Macros---------------------------------
 #define AlimTelStatus (!digitalRead(ALIMTEL))    // Etat de l'alimentation télescope
 // #define Alim12VStatus (digitalRead(ALIM12V))  // Etat de l'alimentation 12V ATX
@@ -122,6 +134,10 @@ SimpleTimer timer;
 
 #define BAPPUILONG  3000  //Durée en ms pour un appui long sur le bouton
 
+// Telnet client
+#define DEFAULT_SOCKET_TIMEOUT	5000
+
+
 // ------------------------------------Variables globales------------------------------------
 
 int countM;           // Nombre d'essais ouverture/fermeture
@@ -143,6 +159,53 @@ bool BLUMIO = !digitalRead(BLUMI);  // Dernier etat du bouton d'éclairage inté
 String Message ="";                 // Message affiché sur l'écran OLED
 
 int TimerID;                        // ID du timer attend
+
+bool connected;                     // ESP-Link MQTT
+
+// Telnet client
+char * const tcpServer PROGMEM = "192.168.0.15";
+uint16_t const tcpPort PROGMEM = 9999;
+ELClientSocket tcp(&esp);
+
+// MQTT
+// Callback when MQTT is connected
+void mqttConnected(void* response) {
+  Serial3.println("MQTT connected!");
+  mqtt.subscribe("esp-abri/set");
+  //mqtt.subscribe("esp-abri/status");
+  //mqtt.subscribe("/hello/world/#");
+  //mqtt.subscribe("/esp-link/2", 1);
+  //mqtt.publish("esp-abri/status", "Ok");
+  connected = true;
+}
+
+// Callback when MQTT is disconnected
+void mqttDisconnected(void* response) {
+  Serial3.println("MQTT disconnected");
+  connected = false;
+}
+
+// Callback when an MQTT message arrives for one of our subscriptions
+void mqttData(void* response) {
+  ELClientResponse *res = (ELClientResponse *)response;
+
+  Serial3.print("Received: topic=");
+  String topic = res->popString();
+  Serial3.println(topic);
+
+  Serial3.print("data=");
+  String data = res->popString();
+  Serial3.println(data);
+  if (topic=="esp-abri/set") {
+    //if (data=="ON") BoutonOpenState=true;
+    if (data=="OFF") BoutonCloseState=true;
+  }
+}
+
+void mqttPublished(void* response) {
+  Serial3.println("MQTT published");
+}
+
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
   // LEDs APA106
@@ -161,6 +224,7 @@ void setup() {
   display.display();
   // Initialisation des ports série
   Serial.begin(9600);  // Connexion à AstroPi (port Indi)
+  Serial3.begin(115200);  
 
   // Initialisation des relais
   // digitalWrite(ALIM12V, HIGH); pinMode(ALIM12V, OUTPUT);
@@ -186,9 +250,27 @@ void setup() {
   //pinMode(PARK, INPUT_PULLUP); // Si le télescope n'est pas branché, considéré comme parqué
   pinMode(PARK, INPUT);
   //timer.setInterval(1000,debug);
+  //timer.setInterval(DELAIMQTT,refreshMQTT);
   barre(0, 0); // Extinction des barres de LEDs
   barre(1, 0);
   barre(2, 0);
+
+  // MQTT
+  Serial3.print("ESPSYNC:");
+  bool ok;
+  do {
+    ok=esp.Sync();
+  } while(!ok);
+  Serial3.println("EL-Client synced!");
+
+  mqtt.connectedCb.attach(mqttConnected);
+  mqtt.disconnectedCb.attach(mqttDisconnected);
+  mqtt.publishedCb.attach(mqttPublished);
+  mqtt.dataCb.attach(mqttData);
+  mqtt.setup();
+
+// Client TCP
+  tcp.begin(tcpServer, tcpPort, SOCKET_TCP_CLIENT);
 
   // Initialisation de la position de l'abri
   INIT=false;
@@ -197,6 +279,7 @@ void setup() {
     CMDARU=true;
     pool();
   }
+  refreshMQTT();
 }
 
 //---------------------------BOUCLE PRINCIPALE-----------------------------------------------
@@ -248,8 +331,24 @@ void loop() {
 }
 
 //-----------------------------------FONCTIONS-----------------------------------------------
+bool refreshMQTT() {
+  // Mise à jour des infos MQTT
+  //Serial3.println("plop");
+  if (AbriOuvert && !AbriFerme) {
+    mqtt.publish("esp-abri/status","ON");
+  }
+  else if (AbriFerme && !AbriOuvert) {
+    mqtt.publish("esp-abri/status","OFF");
+  }
+  /*else {
+  #  mqtt.publish("esp-abri/status","move");
+  }*/
+}
+
 bool deplaceAbri() {
   if (!(TelPark) || !PortesOuvert) return(false);
+
+  
   countM = 0;
   DEPL = true;
   Message="Depl abri";
@@ -284,6 +383,7 @@ bool deplaceAbri() {
 }
 
 bool ouvreAbri() {
+  mqtt.publish("esp-abri/status","ON");
   if (AbriOuvert) return(true);   // Abri déjà ouvert
   // Ouverture des portes si besoin
   if(ouvrePortes()) {
@@ -292,18 +392,46 @@ bool ouvreAbri() {
       return(true);
     }
   }
+  mqtt.publish("esp-abri/status","OFF");
   return(false);
 }
 
 bool fermeAbri() {
+  mqtt.publish("esp-abri/msg","fermeture_abri");
+  mqtt.publish("esp-abri/status","OFF");
   if (AbriFerme) return(true);
+  if (!TelPark) {
+    mqtt.publish("esp-abri/msg","park_telescope");
+    // Tentative de parquer le télescope par les commandes OnStep
+    tcp.send(":Q#");   // Arret du mouvement
+    delay(2200);
+    tcp.send(":Te#");   // Tracking On
+    delay(2200);
+    tcp.send(":hP#");   // Park du télescope
+    // On attend 3mn max que le télescope soit parqué
+    unsigned long tpsdebut=millis();
+    unsigned long tpsact;
+    do {
+      tpsact=millis();
+    } while ((tpsact-tpsdebut)<TPSPARK && !TelPark);
+    delay(5000);  // Attente du park complet
+    mqtt.publish("esp-abri/msg","telescope_parque");
+    if (!TelPark) 
+    {
+      mqtt.publish("esp-abri/msg","park_impossible");
+      mqtt.publish("esp-abri/status","ON");
+      return(false);
+    }
+  }
+  mqtt.publish("esp-abri/msg","arret_telescope");
   StopTel;      // Arret du télescope
   if (deplaceAbri()) {
     if (fermePortes()) {
       return(true);
     }
   }
-return(true);
+  mqtt.publish("esp-abri/status","ON");
+  return(true);
 }
 
 bool ouvrePortes() {
@@ -380,6 +508,7 @@ void testAbort() {
 
 void pool() {
   // Fonctions périodiques
+  esp.Process();  // Gestion de ESP-Link
   ARU();          // Gestion arret d'urgence
   Surv();         // Surveillance de l'abri (déplacement intempestif)
   readIndi();     // Lecture des commandes Indi
@@ -387,7 +516,6 @@ void pool() {
   timer.run();    // Gestion des timers
   ssd1306Info();  // Info sur l'écran OLED
   eclairages();   // Gestion des éclairages
-
 }
 
 bool initAbri() {
