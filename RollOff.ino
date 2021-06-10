@@ -468,11 +468,13 @@ bool fermePortes() {
   ENDSEQ=false;
   EEPROM.put(0,ENDSEQ); // Début de séquence
   Message="Ferme P";
-  StopMot;
+  
   FERM=true;
   FermeP2;
 Message="P2";
-  attend(INTERVALLEPORTES);
+  attend(INTERVALLEPORTES/2);
+  StopMot;
+  attend(INTERVALLEPORTES)/2;
   FermeP1;
 Message="P1";
   attend(DELAIPORTES);
