@@ -474,7 +474,7 @@ bool fermePortes() {
 Message="P2";
   attend(INTERVALLEPORTES/2);
   StopMot;
-  attend(INTERVALLEPORTES)/2;
+  attend(INTERVALLEPORTES/2);
   FermeP1;
 Message="P1";
   attend(DELAIPORTES);
