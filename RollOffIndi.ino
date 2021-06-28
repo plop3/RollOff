@@ -1,12 +1,11 @@
-
 void readIndi() {
   readUSB();
 }
 
 void sendAck(char* val)
 {
-  char response [64];
-  if (strlen(val) > vLen)
+  char response [MAX_RESPONSE];
+  if (strlen(val) > MAX_MESSAGE)
     sendNak(ERROR1);
   else
   {
@@ -25,8 +24,8 @@ void sendAck(char* val)
 
 void sendNak(const char* errorMsg)
 {
-  char buffer[128];
-  if (strlen(errorMsg) > MAXERROR)
+  char buffer[MAX_RESPONSE];
+  if (strlen(errorMsg) > MAX_MESSAGE)
     sendNak(ERROR2);
   else
   {
@@ -52,7 +51,7 @@ bool parseCommand()           // (command:target:value)
   int offset = 0;
   char startToken = '(';
   char endToken = ')';
-  const int bLen = 127;
+  const int bLen = MAX_INPUT;
   char inpBuf[bLen + 1];
 
   memset(inpBuf, 0, sizeof(inpBuf));
@@ -69,7 +68,7 @@ bool parseCommand()           // (command:target:value)
       if (recv_count == 1)
       {
         offset++;
-        if (offset >= MAXCOMMAND)
+        if (offset >= MAX_INPUT)
         {
           sendNak(ERROR3);
           return false;
@@ -138,10 +137,9 @@ void readUSB()
         {
           remotePowerRequest = true;
         }
-        timerActive = true;  // Whether power turned on manually, prior session or auto, When connected timer will run
+        timerActive = true;  // Whether power turned on manually, from a prior session or auto, When connected timer will run
         connecting = true;
-        strcpy(value, "V1.1-0");  // For host debug message
-        sendAck(value);
+        strcpy(value, INFO_1); // To indicate the version of the Arduino code
       }
 
       // Map the general input command term to the local action to be taken
@@ -224,8 +222,12 @@ void readUSB()
           {
             found = false;
           }
+        } // End GET command
+        else
+        {
+            found = false;                             // Not a known command
         }
-      }
+      } // End looking for commands
 
       /*
          See if the command was recognized
@@ -240,7 +242,7 @@ void readUSB()
       }
       else
       {
-        sendAck(value);
+        sendAck(value);       // Found a CON, SET or GET
       }
     }   // end of parseCommand
   }     // end look for USB input
