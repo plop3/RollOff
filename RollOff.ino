@@ -388,10 +388,12 @@ bool ouvreAbri() {
   if (AbriOuvert) return(true);   // Abri déjà ouvert
   // Ouverture des portes si besoin
   if(ouvrePortes()) {
+    StartTel;           // Mise en marche du télescope 
     if (deplaceAbri()) {
-      StartTel;           // Mise en marche du télescope
+      //StartTel;           // Mise en marche du télescope (BUG Kstars démarre trop tôt le déplacement de la monture)
       return(true);
     }
+    else StopTel;
   }
   mqtt.publish("esp-abri/status","OFF");
   return(false);
