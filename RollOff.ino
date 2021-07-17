@@ -142,6 +142,7 @@ ELClientMqtt mqtt(&esp);
 
 int countM;           // Nombre d'essais ouverture/fermeture
 
+bool PortesFerme = true;
 bool TEMPO = false; // Temporisation
 bool TBOUTON = false; // Temporisation bouton
 bool INIT = false;    // Abri initialisé
@@ -456,6 +457,7 @@ bool ouvrePortes() {
       attend(100);
     }
   }
+  PortesFerme=false;
   ENDSEQ=true;
   EEPROM.put(0,ENDSEQ); // Fin de séquence
   // Appui long sur le bouton
@@ -482,6 +484,7 @@ Message="P fermes";
   FERM=false;
   ENDSEQ=true;
   EEPROM.put(0,ENDSEQ); // Fin de séquence
+  PortesFerme=true;
   return(true);
 }
 

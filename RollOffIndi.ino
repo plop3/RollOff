@@ -200,12 +200,12 @@ void readUSB()
         {
           if (strcmp(target, "OPENED") == 0)          // FinOuvertureState
           {
-            if (AbriOuvert)
+            if (AbriOuver && !AbriFerme)
               strcpy(value, "ON");
           }
           else if (strcmp(target, "CLOSED") == 0)     // FinFermetureState
           {
-            if (AbriFerme)
+            if (AbriFerme && !AbriOuvert && PortesFerme)
               strcpy(value, "ON");
           }
           else if (strcmp(target, "LOCKED") == 0)     // Telescope_ParcState
