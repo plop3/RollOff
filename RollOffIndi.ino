@@ -200,7 +200,7 @@ void readUSB()
         {
           if (strcmp(target, "OPENED") == 0)          // FinOuvertureState
           {
-            if (AbriOuver && !AbriFerme)
+            if (AbriOuvert && !AbriFerme)
               strcpy(value, "ON");
           }
           else if (strcmp(target, "CLOSED") == 0)     // FinFermetureState
