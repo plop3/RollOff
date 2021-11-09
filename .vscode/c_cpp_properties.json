@@ -7,11 +7,11 @@
             "compilerArgs": [],
             "intelliSenseMode": "linux-gcc-x64",
             "includePath": [
-                "/opt/arduino-1.8.13/tools/**",
+                "/opt/arduino/tools/**",
                 "/home/serge/Arduino/libraries/**",
-                "/opt/arduino-1.8.13/libraries/**",
-                "/opt/arduino-1.8.13/hardware/tools/**",
-                "/opt/arduino-1.8.13/hardware/arduino/avr/**",
+                "/opt/arduino/libraries/**",
+                "/opt/arduino/hardware/tools/**",
+                "/opt/arduino/hardware/arduino/avr/**",
                 "${workspaceFolder}/**"
             ],
             "forcedInclude": [
@@ -23,7 +23,7 @@
         },
         {
             "name": "Arduino",
-            "compilerPath": "/opt/arduino-1.8.15/hardware/tools/avr/bin/avr-g++",
+            "compilerPath": "/opt/arduino-1.8.16/hardware/tools/avr/bin/avr-g++",
             "compilerArgs": [
                 "-w",
                 "-std=gnu++11",
@@ -36,29 +36,28 @@
             ],
             "intelliSenseMode": "gcc-x64",
             "includePath": [
-                "/opt/arduino-1.8.15/hardware/arduino/avr/cores/arduino",
-                "/opt/arduino-1.8.15/hardware/arduino/avr/variants/mega",
+                "/opt/arduino-1.8.16/hardware/arduino/avr/cores/arduino",
+                "/opt/arduino-1.8.16/hardware/arduino/avr/variants/mega",
                 "/home/serge/Arduino/libraries/Adafruit_NeoPixel",
-                "/opt/arduino-1.8.15/hardware/arduino/avr/libraries/SPI/src",
-                "/opt/arduino-1.8.15/hardware/arduino/avr/libraries/Wire/src",
+                "/opt/arduino-1.8.16/hardware/arduino/avr/libraries/SPI/src",
+                "/opt/arduino-1.8.16/hardware/arduino/avr/libraries/Wire/src",
                 "/home/serge/Arduino/libraries/Adafruit_GFX_Library",
                 "/home/serge/Arduino/libraries/Adafruit_SSD1306",
                 "/home/serge/Arduino/libraries/SimpleTimer",
-                "/opt/arduino-1.8.15/hardware/arduino/avr/libraries/EEPROM/src",
                 "/home/serge/Arduino/libraries/ELClient",
                 "/home/serge/Arduino/libraries/Adafruit_BusIO",
-                "/opt/arduino-1.8.15/hardware/tools/avr/lib/gcc/avr/7.3.0/include",
-                "/opt/arduino-1.8.15/hardware/tools/avr/lib/gcc/avr/7.3.0/include-fixed",
-                "/opt/arduino-1.8.15/hardware/tools/avr/avr/include"
+                "/opt/arduino-1.8.16/hardware/tools/avr/lib/gcc/avr/7.3.0/include",
+                "/opt/arduino-1.8.16/hardware/tools/avr/lib/gcc/avr/7.3.0/include-fixed",
+                "/opt/arduino-1.8.16/hardware/tools/avr/avr/include"
             ],
             "forcedInclude": [
-                "/opt/arduino-1.8.15/hardware/arduino/avr/cores/arduino/Arduino.h"
+                "/opt/arduino-1.8.16/hardware/arduino/avr/cores/arduino/Arduino.h"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",
             "defines": [
                 "F_CPU=16000000L",
-                "ARDUINO=10815",
+                "ARDUINO=10816",
                 "ARDUINO_AVR_MEGA2560",
                 "ARDUINO_ARCH_AVR",
                 "__DBL_MIN_EXP__=(-125)",
