@@ -188,7 +188,7 @@ void mqttData(void* response) {
   String data = res->popString();
   Serial3.println(data);
   if (topic == "esp-abri/set") {
-    //if (data=="ON") BoutonOpenState=true;
+    if (data == "ON") BoutonOpenState = true;
     if (data == "OFF") BoutonCloseState = true;
   }
 }
@@ -263,6 +263,7 @@ void setup() {
   refreshMQTT();
   if (!AbriOuvert && !AbriFerme && PortesOuvert) DEPL = true; 	// Abri non positionné, considéré comme en déplacement
   StartMot;
+  mqtt.publish("esp-abri/msg", "initialisation_abri");
 }
 
 //---------------------------BOUCLE PRINCIPALE-----------------------------------------------
@@ -310,7 +311,7 @@ void loop() {
 }
 
 //-----------------------------------FONCTIONS-----------------------------------------------
-bool refreshMQTT() {
+void refreshMQTT() {
   // Mise à jour des infos MQTT
   //Serial3.println("plop");
   if (AbriOuvert && !AbriFerme) {
@@ -350,24 +351,24 @@ bool deplaceAbri() {
 
 bool ouvreAbri() {
   mqtt.publish("esp-abri/msg", "ouverture_abri");
-  mqtt.publish("esp-abri/status", "ON");
   if (AbriOuvert) return (true);  // Abri déjà ouvert
+  if (TBOUTON) return (false);    // Ouverture seule des portes
   // Ouverture des portes si besoin
   if (ouvrePortes()) {
     StartTel;           // Mise en marche du télescope
     if (deplaceAbri() && AbriOuvert) {
       //StartTel;       // Mise en marche du télescope (BUG Kstars démarre trop tôt le déplacement de la monture)
+      refreshMQTT();
       return (true);
     }
     else StopTel;
   }
-  mqtt.publish("esp-abri/status", "OFF");
+  refreshMQTT();
   return (false);
 }
 
 bool fermeAbri() {
   mqtt.publish("esp-abri/msg", "fermeture_abri");
-  mqtt.publish("esp-abri/status", "OFF");
   if (AbriFerme) return (true);
   if (!TelPark()) {
     mqtt.publish("esp-abri/msg", "park_telescope");
@@ -387,7 +388,7 @@ bool fermeAbri() {
     if (!TelPark())
     {
       mqtt.publish("esp-abri/msg", "park_impossible");
-      mqtt.publish("esp-abri/status", "ON");
+      refreshMQTT();
       return (false);
     }
     mqtt.publish("esp-abri/msg", "telescope_parque");
@@ -396,10 +397,11 @@ bool fermeAbri() {
   StopTel;      // Arret du télescope
   if (deplaceAbri() && AbriFerme) {
     if (fermePortes()) {
+      refreshMQTT();
       return (true);
     }
   }
-  mqtt.publish("esp-abri/status", "ON");
+  refreshMQTT();
   return (false);
 }
 
@@ -408,7 +410,7 @@ bool ouvrePortes() {
     // Portes ouvertes
     OuvreP1;
     OuvreP2;
-    attend(BAPPUILONG + 500);
+    //attend(BAPPUILONG + 500);
   }
   else {
     // Portes fermées
@@ -576,8 +578,8 @@ void Surv() {
     Message = "Err park";
     CMDARU = true;
   }
-  // Déplacement intemesppestif de l'abri
-  if (!DEPL && !AbriOuvert && !AbriFerme) {
+  // Déplacement intenpestif de l'abri sauf si portes ouvertes et télescope parqué (pour réglages...)
+  if (!DEPL && !AbriOuvert && !AbriFerme && (!TelPark || !PortesOuvert)) {
     Message = "Err depl";
     CMDARU = true;
   }
