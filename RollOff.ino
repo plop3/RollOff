@@ -336,6 +336,7 @@ bool TelPark() {
 
 bool deplaceAbri() {
   if (!TelPark() || !PortesOuvert) return (false);
+  if (!MoteurStatus) {StartMot; delay(DELAIMOTEUR);};
   Message = "Depl abri";
   barre(0, 128);
   CmDMotOn;
