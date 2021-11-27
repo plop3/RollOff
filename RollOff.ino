@@ -262,8 +262,9 @@ void setup() {
   tcp.begin(tcpServer, tcpPort, SOCKET_TCP_CLIENT);
   refreshMQTT();
   if (!AbriOuvert && !AbriFerme && PortesOuvert) DEPL = true; 	// Abri non positionné, considéré comme en déplacement
-  StartMot;
+  //StartMot;
   mqtt.publish("esp-abri/msg", "initialisation_abri");
+  delay(500); // Attente pour les capteurs
 }
 
 //---------------------------BOUCLE PRINCIPALE-----------------------------------------------
@@ -352,6 +353,8 @@ bool deplaceAbri() {
 bool ouvreAbri() {
   mqtt.publish("esp-abri/msg", "ouverture_abri");
   if (AbriOuvert) return (true);  // Abri déjà ouvert
+  StartMot; // Démarrage du moteur abri
+  if (PortesOuvert) delay(DELAIMOTEUR);
   // Ouverture des portes si besoin
   if (ouvrePortes()) {
     if (TBOUTON) return (false);    // Ouverture seule des portes
@@ -361,7 +364,10 @@ bool ouvreAbri() {
       refreshMQTT();
       return (true);
     }
-    else StopTel;
+    else {
+      StopTel;
+      StopMot;
+    }
   }
   refreshMQTT();
   return (false);
@@ -396,6 +402,7 @@ bool fermeAbri() {
   mqtt.publish("esp-abri/msg", "arret_telescope");
   StopTel;      // Arret du télescope
   if (deplaceAbri() && AbriFerme) {
+    StopMot;      // Arret du moteur abri
     if (fermePortes()) {
       refreshMQTT();
       return (true);
