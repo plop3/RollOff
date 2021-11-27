@@ -188,7 +188,7 @@ void mqttData(void* response) {
   String data = res->popString();
   Serial3.println(data);
   if (topic == "esp-abri/set") {
-    if (data == "ON") BoutonOpenState = true;
+    //if (data == "ON") BoutonOpenState = true;
     if (data == "OFF") BoutonCloseState = true;
   }
 }
