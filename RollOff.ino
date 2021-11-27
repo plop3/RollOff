@@ -94,7 +94,7 @@ ELClientMqtt mqtt(&esp);
 
 // Constantes globales
 #define DELAIPORTES 50000L          // Durée d'ouverture/fermeture des portes (40000L)
-#define DELAIMOTEUR 15000L          // Durée d'initialisation du moteur (40000L)
+#define DELAIMOTEUR 40000L          // Durée d'initialisation du moteur (40000L)
 #define DELAIABRI   20000L          // Durée de déplacement de l'abri (15000L)
 #define INTERVALLEPORTES 12000       // Intervalle entre la fermeture de la porte 1 et de la porte 2
 #define MOTOFF HIGH                 // Etat pour l'arret du moteur
@@ -336,9 +336,9 @@ bool TelPark() {
 
 bool deplaceAbri() {
   if (!TelPark() || !PortesOuvert) return (false);
+  barre(0, 128);
   if (!MoteurStatus) {StartMot; delay(DELAIMOTEUR);};
   Message = "Depl abri";
-  barre(0, 128);
   CmDMotOn;
   delay(IMPMOT);
   CmDMotOff;
@@ -354,8 +354,7 @@ bool deplaceAbri() {
 bool ouvreAbri() {
   mqtt.publish("esp-abri/msg", "ouverture_abri");
   if (AbriOuvert) return (true);  // Abri déjà ouvert
-  StartMot; // Démarrage du moteur abri
-  if (PortesOuvert) delay(DELAIMOTEUR);
+  if (!PortesOuvert) StartMot; // Démarrage du moteur abri
   // Ouverture des portes si besoin
   if (ouvrePortes()) {
     if (TBOUTON) return (false);    // Ouverture seule des portes
