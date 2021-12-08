@@ -16,13 +16,19 @@
   2 capteurs d'ouverture des portes
   TODO:
 	- Arret de l'alimentation 12V
+  - Sortie Park pour OnStepX
+  - Entrée capteur pluiz
   OPTIONS:
-    - Barrière(s) IR de sécurité
+  - Barrière(s) IR de sécurité
 	- Clavier codé
   /*********************************/
 
 //---------------------------------------Modules--------------------------------
 #include "RollOffIndi.h" // Gestion de l'abri par Indi (https://github.com/wotalota/indi-rolloffino)
+
+//---------------------------------------PARAMETRES-----------------------------
+#define PARKONSTEP false    // 0: Park par ESPServer, 1: Park par entrée OnStepX
+#define CAPTEURPLUIE false  // Capteur de pluie présent (true)
 
 //---------------------------------------PERIPHERIQUES--------------------------
 
@@ -75,6 +81,7 @@ ELClientMqtt mqtt(&esp);
 #define P12     5   // (R6) LM298 2 porte 1
 #define P21     6   // (R7) LM293 3 porte 2
 #define P22     7   // (R8) LM298 4 porte 2
+#define SPARK   8   // Sortie ordre de park vers OnStepX
 
 #define RESET   A13 // Reset de l'arduino
 
@@ -85,6 +92,7 @@ ELClientMqtt mqtt(&esp);
 #define AF  48       // Capteur abri fermé
 #define Po1 24       // Capteur porte 1 ouverte
 #define Po2 25       // Capteur porte 2 ouverte
+#define PLUIE 26     // Capteur de pluie
 
 // Boutons
 #define B1CLEF   A12    // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
@@ -128,6 +136,7 @@ ELClientMqtt mqtt(&esp);
 #define FermeP2       digitalWrite(P21,LOW);digitalWrite(P22,HIGH)
 #define Bclef         !digitalRead(B1CLEF)
 #define Baru          !digitalRead(BARU)
+#define Pluie         digitalRead(PLUIE)
 
 #define BAPPUILONG  3000  //Durée en ms pour un appui long sur le bouton
 
@@ -149,6 +158,8 @@ bool Bmem = false;    // Mémorisation du bouton
 
 bool BLUMTO = !digitalRead(BLUMT);  // Dernier etat du bouton d'éclairage table
 bool BLUMIO = !digitalRead(BLUMI);  // Dernier etat du bouton d'éclairage intérieur
+
+bool CapteurPluie = false;          // Etat du capteur de pluie pour HASS (MQTT)
 
 String Message = "";                // Message affiché sur l'écran OLED
 
@@ -228,12 +239,14 @@ void setup() {
   digitalWrite(P21, LOW); pinMode(P21, OUTPUT);
   digitalWrite(P22, LOW); pinMode(P22, OUTPUT);
   digitalWrite(ALIMMOT, MOTOFF);
+  digitalWrite(SPARK, LOW); pinMode(SPARK, OUTPUT);
 
   // Activation des entrées (capteurs...)
   pinMode(AO, INPUT_PULLUP);
   pinMode(AF, INPUT_PULLUP);
   pinMode(Po1, INPUT_PULLUP);
   pinMode(Po2, INPUT_PULLUP);
+  pinMode(PLUIE, INPUT); 
   pinMode(B1CLEF, INPUT_PULLUP);
   pinMode(BARU, INPUT_PULLUP);
   pinMode(BLUMT, INPUT_PULLUP);
@@ -378,12 +391,19 @@ bool fermeAbri() {
   if (AbriFerme) return (true);
   if (!TelPark()) {
     mqtt.publish("esp-abri/msg", "park_telescope");
-    // Tentative de parquer le télescope par les commandes OnStep
-    tcp.send(":Q#");   // Arret du mouvement
-    delay(2200);
-    tcp.send(":Te#");   // Tracking On
-    delay(2200);
-    tcp.send(":hP#");   // Park du télescope
+    if (!PARKONSTEP) {
+      // Tentative de parquer le télescope par les commandes OnStep
+      tcp.send(":Q#");   // Arret du mouvement
+      delay(2200);
+      tcp.send(":Te#");   // Tracking On
+      delay(2200);
+      tcp.send(":hP#");   // Park du télescope
+    }
+    else {
+      digitalWrite(SPARK, HIGH);  // Park du télescope par entrée OnStepX
+      delay(500);
+      digitalWrite(SPARK, LOW);
+    }
     // On attend 3mn max que le télescope soit parqué
     unsigned long tpsdebut = millis();
     unsigned long tpsact;
@@ -465,6 +485,7 @@ void pool() {
   esp.Process();  // Gestion de ESP-Link
   ARU();          // Gestion arret d'urgence
   Surv();         // Surveillance de l'abri
+  if (AbriOuvert) meteo();        // Détection de pluie (vent...)
   readIndi();     // Lecture des commandes Indi
   timer.run();    // Gestion des timers
   ssd1306Info();  // Info sur l'écran OLED
@@ -589,5 +610,17 @@ void Surv() {
   if (!DEPL && !AbriOuvert && !AbriFerme && (!TelPark || !PortesOuvert)) {
     Message = "Err depl";
     CMDARU = true;
+  }
+}
+
+bool meteo() {
+  // Sécurité météo: pluie, (vent...)
+  if (Pluie) {
+    mqtt.publish("esp-abri/msg", "alerte pluie");
+    /* TODO
+      - Passer le capteur pluie à ON pour HASS
+      - Lecture analogique du capteur ? (voir WeatherRadio)
+    */
+    fermeAbri();
   }
 }
