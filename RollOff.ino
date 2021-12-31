@@ -189,7 +189,7 @@ void mqttData(void* response) {
   Serial3.println(data);
   if (topic == "esp-abri/set") {
     //if (data == "ON") BoutonOpenState = true;
-    if (data == "OFF") BoutonCloseState = true;
+    //if (data == "OFF") BoutonCloseState = true;
   }
 }
 
@@ -265,6 +265,12 @@ void setup() {
   //StartMot;
   mqtt.publish("esp-abri/msg", "initialisation_abri");
   delay(500); // Attente pour les capteurs
+
+    // Abri ouvert, démarrage de l'alimentation télescope
+    if (AbriOuvert) {
+        StartTel;
+        StartMot;
+    }
 }
 
 //---------------------------BOUCLE PRINCIPALE-----------------------------------------------
@@ -274,7 +280,6 @@ void loop() {
   // Gestion de l'abri
   // Attente d'une commande
   Message = "OK";
-
   if (Bclef) {
     // Commande manuelle
     Bmem = true;
