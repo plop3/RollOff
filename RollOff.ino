@@ -16,10 +16,8 @@
   2 capteurs d'ouverture des portes
   TODO:
 	- Arret de l'alimentation 12V
-  - Sortie Park pour OnStepX
-  - Entrée capteur pluiz
   OPTIONS:
-  - Barrière(s) IR de sécurité
+    - Barrière(s) IR de sécurité
 	- Clavier codé
   /*********************************/
 
@@ -46,30 +44,9 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
    16-23: Eclairage extérieur
 */
 
-// Afficheur OLED SSD1306
-#include <SPI.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-#define OLED_RESET     -1
-#define SCREEN_ADDRESS 0x3C
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
 // Timer
 #include <SimpleTimer.h>
 SimpleTimer timer;
-
-// ESP-Link
-#include <ELClient.h>
-#include <ELClientSocket.h>
-#include <ELClientCmd.h>
-#include <ELClientMqtt.h>
-ELClient esp(&Serial3, &Serial3);
-//ELClientCmd cmd(&esp);
-ELClientMqtt mqtt(&esp);
-
 
 //---------------------------------------CONSTANTES-----------------------------
 // Sorties
@@ -101,33 +78,32 @@ ELClientMqtt mqtt(&esp);
 #define BLUMI    A10    // Bouton d'éclairage de l'abri   (rouge)
 
 // Constantes globales
-#define DELAIPORTES 50000L          // Durée d'ouverture/fermeture des portes (40000L)
-#define DELAIMOTEUR 40000L          // Durée d'initialisation du moteur (40000L)
-#define DELAIABRI   20000L          // Durée de déplacement de l'abri (15000L)
-#define INTERVALLEPORTES 12000       // Intervalle entre la fermeture de la porte 1 et de la porte 2
-#define MOTOFF HIGH                 // Etat pour l'arret du moteur
+#define DELAIPORTES 40000L          // Durée d'ouverture/fermeture des portes (40000L)
+#define DELAIMOTEUR 30000L          // Durée d'initialisation du moteur (40000L)
+#define DELAIABRI   22000L          // Durée de déplacement de l'abri (15000L)
+#define INTERVALLEPORTES 12000      // Intervalle entre la fermeture de la porte 1 et de la porte 2
+#define MOTOFF LOW                  // Etat pour l'arret du moteur
 #define MOTON !MOTOFF
-#define IMPMOT 300                 // Durée d'impulsion moteur
+#define IMPMOT 500                  // Durée d'impulsion moteur
+#define TPSPARK 180000              // Temps maxi de park en millisecondes
 
-#define DELAIMQTT 30000UL            // Rafraichissement MQTT
-// Temps maxi de park en millisecondes
 #define TPSPARK 180000
 
 //---------------------------------------Macros---------------------------------
-#define AlimTelStatus (!digitalRead(ALIMTEL))    // Etat de l'alimentation télescope
-#define Alim12VStatus (digitalRead(ALIM12V))  // Etat de l'alimentation 12V ATX
+#define AlimTelStatus (digitalRead(ALIMTEL))    // Etat de l'alimentation télescope
+#define Alim12VStatus (!digitalRead(ALIM12V))  // Etat de l'alimentation 12V ATX
 #define PortesOuvert  (!digitalRead(Po1) && !digitalRead(Po2)) // && Alim12VStatus)
 #define AbriFerme     (!digitalRead(AF))
 #define AbriOuvert    (!digitalRead(AO))
-#define MoteurStatus  (!digitalRead(ALIMMOT))
-#define StartTel      digitalWrite(ALIMTEL, LOW)
-#define StopTel       digitalWrite(ALIMTEL, HIGH)
-#define StartMot      digitalWrite(ALIMMOT, LOW)
+#define MoteurStatus  (digitalRead(ALIMMOT))
+#define StartTel      digitalWrite(ALIMTEL, HIGH)
+#define StopTel       digitalWrite(ALIMTEL, LOW)
+#define StartMot      digitalWrite(ALIMMOT, HIGH)
 #define StopMot       digitalWrite(ALIMMOT, MOTOFF)
-#define CmDMotOff     digitalWrite(MOTEUR, HIGH)
-#define CmDMotOn      digitalWrite(MOTEUR, LOW)
-#define Stop12V       digitalWrite(ALIM12V, LOW)
-#define Start12V      digitalWrite(ALIM12V, HIGH)
+#define CmDMotOff     digitalWrite(MOTEUR, LOW)
+#define CmDMotOn      digitalWrite(MOTEUR, HIGH)
+#define Stop12V       digitalWrite(ALIM12V, HIGH)
+#define Start12V      digitalWrite(ALIM12V, LOW)
 #define TelParkStateA (analogRead(PARK)>300)
 #define TelParkStateN  digitalRead(PARK)
 #define OuvreP1       digitalWrite(P12,LOW);digitalWrite(P11,HIGH)
@@ -139,10 +115,6 @@ ELClientMqtt mqtt(&esp);
 #define Pluie         digitalRead(PLUIE)
 
 #define BAPPUILONG  3000  //Durée en ms pour un appui long sur le bouton
-
-// Telnet client
-#define DEFAULT_SOCKET_TIMEOUT	5000
-
 
 // ------------------------------------Variables globales------------------------------------
 
@@ -165,48 +137,8 @@ String Message = "";                // Message affiché sur l'écran OLED
 
 bool connected;                     // ESP-Link MQTT
 
-char * const tcpServer PROGMEM = "192.168.0.15";
-uint16_t const tcpPort PROGMEM = 9999;
-
 // ------------------------------------ Client Telnet ------------------------------------
-// Telnet client
-ELClientSocket tcp(&esp);
 
-// ------------------------------------  MQTT ------------------------------------
-// MQTT
-// Callback when MQTT is connected
-void mqttConnected(void* response) {
-  Serial3.println("MQTT connected!");
-  mqtt.subscribe("esp-abri/set");
-  connected = true;
-}
-
-// Callback when MQTT is disconnected
-void mqttDisconnected(void* response) {
-  Serial3.println("MQTT disconnected");
-  connected = false;
-}
-
-// Callback when an MQTT message arrives for one of our subscriptions
-void mqttData(void* response) {
-  ELClientResponse *res = (ELClientResponse *)response;
-
-  Serial3.print("Received: topic=");
-  String topic = res->popString();
-  Serial3.println(topic);
-
-  Serial3.print("data=");
-  String data = res->popString();
-  Serial3.println(data);
-  if (topic == "esp-abri/set") {
-    //if (data == "ON") BoutonOpenState = true;
-    //if (data == "OFF") BoutonCloseState = true;
-  }
-}
-
-void mqttPublished(void* response) {
-  Serial3.println("MQTT published");
-}
 
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
@@ -214,16 +146,6 @@ void setup() {
   pixels.begin();
   pixels.clear();
   pixels.show();
-  //SSD1306
-  display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
-  //display.display();
-  display.clearDisplay();
-  display.setTextSize(3);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.cp437(true);
-  display.write("Init");
-  display.display();
   // Initialisation des ports série
   Serial.begin(9600);  		// Connexion à AstroPi (port Indi)
   Serial3.begin(115200);  	// Connexion ESP-Link
@@ -257,26 +179,7 @@ void setup() {
   barre(1, 0);
   barre(2, 0);
 
-  // MQTT
-  Serial3.print("ESPSYNC:");
-  bool ok;
-  do {
-    ok = esp.Sync();
-  } while (!ok);
-  Serial3.println("EL-Client synced!");
-
-  mqtt.connectedCb.attach(mqttConnected);
-  mqtt.disconnectedCb.attach(mqttDisconnected);
-  mqtt.publishedCb.attach(mqttPublished);
-  mqtt.dataCb.attach(mqttData);
-  mqtt.setup();
-
-  // Client TCP
-  tcp.begin(tcpServer, tcpPort, SOCKET_TCP_CLIENT);
-  refreshMQTT();
   if (!AbriOuvert && !AbriFerme && PortesOuvert) DEPL = true; 	// Abri non positionné, considéré comme en déplacement
-  //StartMot;
-  mqtt.publish("esp-abri/msg", "initialisation_abri");
   delay(500); // Attente pour les capteurs
 
     // Abri ouvert, démarrage de l'alimentation télescope
@@ -292,7 +195,6 @@ void loop() {
   pool(); // fonctions périodiques
   // Gestion de l'abri
   // Attente d'une commande
-  Message = "OK";
   if (Bclef) {
     // Commande manuelle
     Bmem = true;
@@ -330,38 +232,24 @@ void loop() {
 }
 
 //-----------------------------------FONCTIONS-----------------------------------------------
-void refreshMQTT() {
-  // Mise à jour des infos MQTT
-  //Serial3.println("plop");
-  if (AbriOuvert && !AbriFerme) {
-    mqtt.publish("esp-abri/status", "ON");
-  }
-  else if (AbriFerme && !AbriOuvert) {
-    mqtt.publish("esp-abri/status", "OFF");
-  }
-  /*else {
-    #  mqtt.publish("esp-abri/status","move");
-    }*/
-}
 
 bool TelPark() {
   //Test du park télescope
   if (TelParkStateA) return (true);
   // 2e chance
   delay(100);
-  return (TelParkStateA);
+  if (TelParkStateA) return (true);
+  return (false);
 }
 
 bool deplaceAbri() {
   if (!TelPark() || !PortesOuvert) return (false);
   barre(0, 128);
   if (!MoteurStatus) {StartMot; delay(DELAIMOTEUR);};
-  Message = "Depl abri";
   CmDMotOn;
   delay(IMPMOT);
   CmDMotOff;
   DEPL = true;
-  mqtt.publish("esp-abri/msg", "deplacement_abri");
   attend(DELAIABRI);
   while (!AbriOuvert && !AbriFerme); // Attente des capteurs
   barre(0, 0);
@@ -370,7 +258,6 @@ bool deplaceAbri() {
 }
 
 bool ouvreAbri() {
-  mqtt.publish("esp-abri/msg", "ouverture_abri");
   if (AbriOuvert) return (true);  // Abri déjà ouvert
   if (!PortesOuvert) StartMot; // Démarrage du moteur abri
   // Ouverture des portes si besoin
@@ -379,7 +266,6 @@ bool ouvreAbri() {
     StartTel;           // Mise en marche du télescope
     if (deplaceAbri() && AbriOuvert) {
       //StartTel;       // Mise en marche du télescope (BUG Kstars démarre trop tôt le déplacement de la monture)
-      refreshMQTT();
       return (true);
     }
     else {
@@ -387,28 +273,15 @@ bool ouvreAbri() {
       StopMot;
     }
   }
-  refreshMQTT();
   return (false);
 }
 
 bool fermeAbri() {
-  mqtt.publish("esp-abri/msg", "fermeture_abri");
   if (AbriFerme) return (true);
   if (!TelPark()) {
-    mqtt.publish("esp-abri/msg", "park_telescope");
-    if (!PARKONSTEP) {
-      // Tentative de parquer le télescope par les commandes OnStep
-      tcp.send(":Q#");   // Arret du mouvement
-      delay(2200);
-      tcp.send(":Te#");   // Tracking On
-      delay(2200);
-      tcp.send(":hP#");   // Park du télescope
-    }
-    else {
-      digitalWrite(SPARK, HIGH);  // Park du télescope par entrée OnStepX
-      delay(500);
-      digitalWrite(SPARK, LOW);
-    }
+    digitalWrite(SPARK, HIGH);  // Park du télescope par entrée OnStepX
+    delay(500);
+    digitalWrite(SPARK, LOW);
     // On attend 3mn max que le télescope soit parqué
     unsigned long tpsdebut = millis();
     unsigned long tpsact;
@@ -418,22 +291,16 @@ bool fermeAbri() {
     delay(5000);  // Attente du park complet
     if (!TelPark())
     {
-      mqtt.publish("esp-abri/msg", "park_impossible");
-      refreshMQTT();
       return (false);
     }
-    mqtt.publish("esp-abri/msg", "telescope_parque");
   }
-  mqtt.publish("esp-abri/msg", "arret_telescope");
   StopTel;      // Arret du télescope
   if (deplaceAbri() && AbriFerme) {
     StopMot;      // Arret du moteur abri
     if (fermePortes()) {
-      refreshMQTT();
       return (true);
     }
   }
-  refreshMQTT();
   return (false);
 }
 
@@ -462,15 +329,11 @@ bool ouvrePortes() {
 
 bool fermePortes() {
   if (!AbriFerme || AbriOuvert) return (false);
-  Message = "Ferme P";
   FERM = true;
   FermeP2;
-  Message = "P2";
   attend(INTERVALLEPORTES);
   FermeP1;
-  Message = "P1";
   attend(DELAIPORTES);
-  Message = "P fermes";
   FERM = false;
   PortesFerme = true;
   return (true);
@@ -487,13 +350,11 @@ void attend(unsigned long delai) {
 
 void pool() {
   // Fonctions périodiques
-  esp.Process();  // Gestion de ESP-Link
   ARU();          // Gestion arret d'urgence
   Surv();         // Surveillance de l'abri
   if (AbriOuvert) meteo();        // Détection de pluie (vent...)
   readIndi();     // Lecture des commandes Indi
   timer.run();    // Gestion des timers
-  ssd1306Info();  // Info sur l'écran OLED
   eclairages();   // Gestion des éclairages
 }
 
@@ -539,28 +400,6 @@ void timerBouton() {
   if (Bclef) TBOUTON = true;
 }
 
-void ssd1306Info() {
-  // Affiche les infos sur l'état du télescope
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.println(Message);
-  display.setTextSize(2);
-  //display.setCursor(0,18);
-  display.println(TelPark() ? "Park" : "Non P.");
-  // Affiche l'état de l'abri
-  //Abri ouvert,  Abri fermé, Portes ouvertes, Alim télescope, Alim moteur,  Commande moteur
-  display.setTextSize(1);
-  if (AbriOuvert) display.print("AO ");
-  if (AbriFerme) display.print("AF ");
-  if (!digitalRead(Po1)) display.print("P1 ");
-  if (!digitalRead(Po2)) display.print("P2 ");
-  // if (Alim12VStatus) display.print("12V ");
-  if (MoteurStatus) display.print("M ");
-  if (!digitalRead(MOTEUR)) display.print("*");
-  display.display();
-}
-
 void ARU() {
   if (Baru || CMDARU || BoutonStopState) {  // Arret d'urgence
     // Mise à zéro de toutes les sorties
@@ -578,7 +417,6 @@ void ARU() {
     }
     if (Baru) {
       Message = "ARU";
-      ssd1306Info();
       delay(500);
     }
     if (CMDARU) {
@@ -612,7 +450,7 @@ void Surv() {
     CMDARU = true;
   }
   // Déplacement intenpestif de l'abri sauf si portes ouvertes et télescope parqué (pour réglages...)
-  if (!DEPL && !AbriOuvert && !AbriFerme && (!TelPark || !PortesOuvert)) {
+  if (!DEPL && !AbriOuvert && !AbriFerme && (!TelPark() || !PortesOuvert)) {
     Message = "Err depl";
     CMDARU = true;
   }
@@ -621,11 +459,10 @@ void Surv() {
 bool meteo() {
   // Sécurité météo: pluie, (vent...)
   if (Pluie) {
-    mqtt.publish("esp-abri/msg", "alerte pluie");
     /* TODO
       - Passer le capteur pluie à ON pour HASS
       - Lecture analogique du capteur ? (voir WeatherRadio)
     */
-    fermeAbri();
+    //fermeAbri();
   }
 }
