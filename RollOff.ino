@@ -1,4 +1,11 @@
 /*
+
+/!\ Remettre ARU et surv !
+    Remettre pilotage de l'abri
+
+*/
+
+/*
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
   GPL V3
@@ -61,6 +68,7 @@ SimpleTimer timer;
 #define SPARK   8   // Sortie ordre de park vers OnStepX
 
 #define RESET   A13 // Reset de l'arduino
+#define W5100PIN  10
 
 // Entrées
 #define PARK  A5     // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
@@ -138,7 +146,26 @@ String Message = "";                // Message affiché sur l'écran OLED
 bool connected;                     // ESP-Link MQTT
 
 // ------------------------------------ Client Telnet ------------------------------------
+#include <SPI.h>
+#include <Ethernet.h>
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip(192, 168, 0, 16);
+IPAddress myDns(192, 168, 0, 254);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
 
+EthernetServer server(23);
+EthernetClient client = 0;
+boolean alreadyConnected = false; // whether or not the client was connected previously
+
+// Test capteurs
+bool testBouton=false;
+bool testPark=true;
+bool testAO=false;
+bool testAF=true;
+bool testP1=false;
+bool testP2=false;
 
 //---------------------------------------SETUP-----------------------------------------------
 void setup() {
@@ -181,19 +208,22 @@ void setup() {
 
   if (!AbriOuvert && !AbriFerme && PortesOuvert) DEPL = true; 	// Abri non positionné, considéré comme en déplacement
   delay(500); // Attente pour les capteurs
-
-    // Abri ouvert, démarrage de l'alimentation télescope
-    if (AbriOuvert) {
-        StartTel;
-        StartMot;
-    }
+  // Abri ouvert, démarrage de l'alimentation télescope
+  if (AbriOuvert) {
+    StartTel;
+    StartMot;
+  } 
+  // Ethernet
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
+  Ethernet.init(10);
+  server.begin();
 }
 
 //---------------------------BOUCLE PRINCIPALE-----------------------------------------------
 
 void loop() {
-  pool(); // fonctions périodiques
-  // Gestion de l'abri
+  // Fonctions périodiques
+  pool();
   // Attente d'une commande
   if (Bclef) {
     // Commande manuelle
@@ -208,20 +238,24 @@ void loop() {
     TBOUTON = false;
   }
 
+  // Gestion de l'abri
   if (AbriFerme && PortesOuvert && Bmem && !BoutonOpenState) {
     Bmem = false;
+    sendMsg("Ferme portes");
     fermePortes();
   }
   else if (!AbriOuvert && (Bmem || BoutonOpenState)) {
     // Ouverture abri (abri non fermé)
     BoutonOpenState = false;
     Bmem = false;
+    sendMsg("Ouvre abri");
     ouvreAbri();
   }
   // Fermeture abri
   else if (AbriOuvert  && (Bmem || BoutonCloseState)) {
     Bmem = false;
     BoutonCloseState = false;
+    sendMsg("Ferme abri");
     fermeAbri();
   }
   else {
@@ -229,6 +263,7 @@ void loop() {
     Bmem = false;
     BoutonCloseState = false;
   }
+
 }
 
 //-----------------------------------FONCTIONS-----------------------------------------------
@@ -243,6 +278,7 @@ bool TelPark() {
 }
 
 bool deplaceAbri() {
+  sendMsg("F. Deplace abri");
   if (!TelPark() || !PortesOuvert) return (false);
   barre(0, 128);
   if (!MoteurStatus) {StartMot; delay(DELAIMOTEUR);};
@@ -258,6 +294,7 @@ bool deplaceAbri() {
 }
 
 bool ouvreAbri() {
+  sendMsg("F. Ouvre abri");
   if (AbriOuvert) return (true);  // Abri déjà ouvert
   if (!PortesOuvert) StartMot; // Démarrage du moteur abri
   // Ouverture des portes si besoin
@@ -277,6 +314,7 @@ bool ouvreAbri() {
 }
 
 bool fermeAbri() {
+  sendMsg("F. Ferme abri");
   if (AbriFerme) return (true);
   if (!TelPark()) {
     digitalWrite(SPARK, HIGH);  // Park du télescope par entrée OnStepX
@@ -305,6 +343,7 @@ bool fermeAbri() {
 }
 
 bool ouvrePortes() {
+  sendMsg("F. Ouvre portes");
   if (PortesOuvert) {
     // Portes ouvertes
     OuvreP1;
@@ -328,6 +367,7 @@ bool ouvrePortes() {
 }
 
 bool fermePortes() {
+  sendMsg("F. Ferme portes");
   if (!AbriFerme || AbriOuvert) return (false);
   FERM = true;
   FermeP2;
@@ -346,16 +386,6 @@ void attend(unsigned long delai) {
     currentMillis = millis();
     pool();
   } while (currentMillis - previousMillis <= delai);
-}
-
-void pool() {
-  // Fonctions périodiques
-  ARU();          // Gestion arret d'urgence
-  Surv();         // Surveillance de l'abri
-  if (AbriOuvert) meteo();        // Détection de pluie (vent...)
-  readIndi();     // Lecture des commandes Indi
-  timer.run();    // Gestion des timers
-  eclairages();   // Gestion des éclairages
 }
 
 void eclairages() {
@@ -402,6 +432,7 @@ void timerBouton() {
 
 void ARU() {
   if (Baru || CMDARU || BoutonStopState) {  // Arret d'urgence
+  sendMsg("F. ARU");
     // Mise à zéro de toutes les sorties
     //Stop12V;
     StopMot; 						// Coupure alimentation moteur abri
@@ -440,19 +471,22 @@ void Surv() {
   // Déplacement et le télescope perd le park
   if (DEPL && !TelPark()) {
     // Arret d'urgence
+    sendMsg("Déplacement et le télescope perd le park");
     Message = "Err park";
-    CMDARU = true;
+    ///CMDARU = true;
   }
   // Fermeture des portes et le télescope perd le park
   if (FERM && !TelPark()) {
     // Arret d'urgence
+    sendMsg("Fermeture des portes et le télescope perd le park");
     Message = "Err park";
-    CMDARU = true;
+    ///CMDARU = true;
   }
   // Déplacement intenpestif de l'abri sauf si portes ouvertes et télescope parqué (pour réglages...)
   if (!DEPL && !AbriOuvert && !AbriFerme && (!TelPark() || !PortesOuvert)) {
+    sendMsg("Déplacement intenpestif de l'abri sauf si portes ouvertes et télescope parqué ");
     Message = "Err depl";
-    CMDARU = true;
+    ///CMDARU = true;
   }
 }
 
@@ -465,4 +499,43 @@ bool meteo() {
     */
     //fermeAbri();
   }
+}
+
+void telnetServer() {
+  EthernetClient client = server.available();
+   if (client) {
+    if (!alreadyConnected) {
+      // clear out the input buffer:
+      client.flush();
+      alreadyConnected = true;
+    }
+  }
+}
+
+void sendMsg(String message) {
+  // Envoi des messages
+  server.println(message);
+}
+
+void pool() {
+  // Fonctions périodiques
+  ARU();          // Gestion arret d'urgence
+  Surv();         // Surveillance de l'abri
+  if (AbriOuvert) meteo();        // Détection de pluie (vent...)
+  readIndi();     // Lecture des commandes Indi
+  telnetServer(); // Lecture/envoi des commandes Telnet
+  testIO();
+  timer.run();    // Gestion des timers
+  eclairages();   // Gestion des éclairages
+}
+
+void testIO() {
+  // Test des capteurs
+  if (testBouton != Bclef) {testBouton=!testBouton;sendMsg("--> bouton");}
+  if (testPark != TelPark()) {testPark=!testPark;sendMsg("--> park");}
+  if (testAO != AbriOuvert) {testAO=!testAO;sendMsg("--> abri ouvert");}
+  if (testAF != AbriFerme) {testAF=!testAF;sendMsg("--> abri ferme");}
+  if (testP1 ==!digitalRead(Po1)) {testP1=!testP1;sendMsg("--> Porte 1");}
+  if (testP2 ==!digitalRead(Po2)) {testP2=!testP2;sendMsg("--> Porte 1");}
+
 }
