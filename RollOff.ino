@@ -26,6 +26,9 @@
 /******************/
 /* PHERIPHERIQUES */
 /******************/
+// Timer
+#include <SimpleTimer.h>
+SimpleTimer timer;
 
 /**************/
 /* CONSTANTES */
@@ -45,6 +48,7 @@
 // Boutons
 #define BCLEF       A12     // Bouton à clef d'ouverture/fermeture 
 #define BVERT       34      // Bouton intérieur d'ouverture/fermeture   
+#define BROUGE      46      // Bouton de sélection
 #define BARU        22      // Bouton d'arret d'urgence
 
 /**********/
@@ -56,6 +60,10 @@
 /**********************/
 /* VARIABLES GLOBALES */
 /**********************/
+bool AbriCours=false;   // Demande d'ouverture en cours (attend que les portes soient ouvertes)
+bool ArretCours=false;  // Demande d'arret de l'abri en cours (attend que l'abri soit fermé)
+bool PorteCours=false;  // Demande de déplacement des portes en cours
+bool MotAbriOk=false;   // Moteur abri prêt (allumé depuis plus de DELAIMOTEUR secondes)
 
 /*********/
 /* SETUP */
@@ -77,17 +85,34 @@ void setup() {
   pinMode(PO2, INPUT_PULLUP);
   pinMode(BCLEF, INPUT_PULLUP);
   pinMode(BVERT, INPUT_PULLUP);
+  pinMode(BROUGE, INPUT_PULLUP);
   pinMode(BARU, INPUT_PULLUP);
-
-// TEST
- ouvrePortes();
+  // Initialisation du moteur abri
+  //timer.setTimeout(DELAIMOTEUR, initAbriOk); 
+  timer.setTimeout(3000, initAbriOk);
 }
 
 /*********************/
 /* BOUCLE PRINCIPALE */
 /*********************/
 void loop() {
-
+    timer.run();
+    // Demande de déplacement de l'abri en cours (attente de l'ouverture des portes)
+    // Déplacement différé de l'abri
+    if (AbriCours && !digitalRead(PO1) && !digitalRead(PO2)) {
+        deplaceAbri(); 
+        Serial.println("Demande deplacement abri effectif");
+    }
+    // Demande d'arret de l'abri en cours (attente de l'abri en position fermé)
+    // Fermeture différée des portes
+    if (ArretCours && !digitalRead(AF)) {
+        fermePortes();
+        // TODO arret de l'abri
+        ArretCours=false;
+    }
+    if (!digitalRead(BVERT)) ouvreAbri();
+    if (!digitalRead(BROUGE)) fermeAbri();
+    delay(200);
 }
 
 /*************/
@@ -96,43 +121,98 @@ void loop() {
 
 // Ouverture de l'abri
 void ouvreAbri() {
+    // Abri déjà ouvert
+    if (!digitalRead(AO) || AbriCours || ArretCours) return;
+    Serial.println("ouvre abri");
     ouvrePortes();
+    AbriCours=true;     // Fermeture différée de l'abri après fermeture des portes
 }
 
 // Fermeture de l'abri
 void fermeAbri() {
-    fermePortes();
+    if (!digitalRead(AF) || AbriCours || ArretCours) return;
+    Serial.println("ferme abri");
+    deplaceAbri();      // Fermeture différée des portes après fermeture de l'abri
+    ArretCours=true;
 }
+
+void deplaceAbri() {
+    // Moteur pas pret, portes non ouvertes
+    if (!MotAbriOk || digitalRead(PO1) || digitalRead(PO2)) return;
+    Serial.println("deplace abri");
+    // Commande du moteur de l'abri
+    CmdMotOn;
+    delay(IMPMOT);
+    CmdMotOff;
+    AbriCours=false;
+}
+
 // Ouverture des portes
 void ouvrePortes() {
+    if (PorteCours) return;
+    Serial.println("ouvre portes");
     // Ouverture de la porte 1
-    ouvrePorte1();
+    if (!digitalRead(PO1)) {
+        // Porte 1 déja ouverte
+        if (digitalRead(PO2)) ouvrePorte2();
+    }
+    else {
+        ouvrePorte1();
+        // Porte 2 non ouverte
+        if (digitalRead(PO2)) {
+            timer.setTimeout(INTERVALLEPORTES, ouvrePorte2);    
+            PorteCours=true;
+        }
+    }
 }
 
 void fermePortes() {
+    if (PorteCours) return;
+    Serial.println("ferme portes");
     // Fermeture des portes
-    fermePorte2();
+    // Abri fermé on ferme les portes
+    if (!digitalRead(AF)) {
+        fermePorte2();
+        PorteCours=true;
+        timer.setTimeout(INTERVALLEPORTES, fermePorte1);
+    }
 }
 
 void ouvrePorte1() {
+    Serial.println("ouvre porte 1");
     // Ouverture de la porte 1
     digitalWrite(P12,LOW);
     digitalWrite(P11,HIGH);
 }
 
 void fermePorte1() {
+    Serial.println("ferme porte 1");
     // Fermeture de la porte 1
     digitalWrite(P11,LOW);
     digitalWrite(P12,HIGH);
+    PorteCours=false;
 }
 
 void ouvrePorte2() {
+    Serial.println("ouvre porte 2");
     // Ouverture de la porte 2
+    digitalWrite(P12,LOW);
+    digitalWrite(P11,HIGH);
+    PorteCours=false;
 }
 
 void fermePorte2() {
+    Serial.println("ferme porte 2");
     // Fermeture de la porte 2
+    digitalWrite(P21,LOW);
+    digitalWrite(P22,HIGH);
 }
+
+void initAbriOk() {
+    // Moteur abri pret
+    MotAbriOk=true;
+}
+
 /************************/
 /* FONCTIONS ROLLOFFINO */
 /************************/

@@ -5,10 +5,13 @@
 - Gestion des leds (verte et bleue)
   - Verte: Abri ouvert
   - Bleue: mode manuel
-- Ouverture/fermeture des portes
 - Commandes par port série (commandes Indi)
 - Arrets d'urgence
-- Déplacement abri
+- Gestion des sécurités:
+  - Temps mini ouverture des portes
+  - Temps mini déplacement de l'abri
+  - Déplacement non prévu de l'abri ouvert
+  - Le télescope bouge pendant le déplacement ou la fermeture des portes
 - Gestion des éclairages
 - Commandes par Réseau
 - Park du télescope
@@ -22,3 +25,9 @@
   - Bouton rouge: sélection de la fonction
   - Bouton vert: exécution de la fonction
 - AJout du capteur de pluie
+
+
+NOTES
+- Après ARU, annuler les flags déplacement en cours
+- Abri ouvert et fermé -> Erreur
+- Abri ni ouvert, ni fermé -> considéré comme ouvert pour les commandes
