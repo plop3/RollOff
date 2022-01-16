@@ -1,11 +1,25 @@
-# RollOff
-Gestion de l'abri automatisé du télescope
+Pilotage de l'abri roulant pour télescope
+Basé sur: https://github.com/wotalota/indi-rolloffino
 
-
-Basé sur: https://github.com/wotalota/indi-rolloffino/tree/master
-
-Gestion de l'abri automatisé du télescope
-
+Bouton à clef pour ouverture de l'abri:
+    Appui long: Ouverture, fermeture des portes seules
+    Appui court: Ouverture de l'abri, fermeture de l'abri
+  
+    Bouton vert à l'intérieur:
+    Commandes identiques au bouton à clef.
+    2 boutons arrêt d'urgence (1 intérieur, 1 extérieur)
+    2 capteurs de position de l'abri (ouvert, fermé)
+    1 capteur de position du télescope (parqué: true)
+    2 capteurs d'ouverture des portes
+  
+  TODO:
+	- Arret de l'alimentation 12V
+  
+  OPTIONS:
+    - Barrière(s) IR de sécurité
+    - Capteurs fermeture des portes
+	- Clavier codé
+  
 L'abri est une petite cabane sur rails.
 L'ouverture/fermeture des portes est assurée par 2 vérins électriques.
 L'ouverture/fermeture de l'abri est commandée par une motorisation de porte de garage.
