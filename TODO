@@ -1,2 +1,24 @@
+- Gestion des boutons (clef + bouton vert)
+  - Appui long: ouverture/fermeture des portes
+  - Appui court: ouverture/fermeture de l'abri
+- Gestion de l'afficheur Oled
+- Gestion des leds (verte et bleue)
+  - Verte: Abri ouvert
+  - Bleue: mode manuel
+- Ouverture/fermeture des portes
+- Commandes par port série (commandes Indi)
+- Arrets d'urgence
+- Déplacement abri
+- Gestion des éclairages
+- Commandes par Réseau
+- Park du télescope
+  - Commandes réseau
+  - Commande directe par pin Park
+- Gestion du bouton rouge (ouvre/ferme porte panneau à flats)
+- Gestion du mode manuel:
+  - Bouton noir: 
+      - Appui long: mode manuel/auto
+      - Appui court: afficheur Oled on/off (5mn)
+  - Bouton rouge: sélection de la fonction
+  - Bouton vert: exécution de la fonction
 - AJout du capteur de pluie
-- Réseau Ethernet

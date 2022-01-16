@@ -78,6 +78,9 @@ void setup() {
   pinMode(BCLEF, INPUT_PULLUP);
   pinMode(BVERT, INPUT_PULLUP);
   pinMode(BARU, INPUT_PULLUP);
+
+// TEST
+ ouvrePortes();
 }
 
 /*********************/
@@ -91,6 +94,45 @@ void loop() {
 /* FONCTIONS */
 /*************/
 
+// Ouverture de l'abri
+void ouvreAbri() {
+    ouvrePortes();
+}
+
+// Fermeture de l'abri
+void fermeAbri() {
+    fermePortes();
+}
+// Ouverture des portes
+void ouvrePortes() {
+    // Ouverture de la porte 1
+    ouvrePorte1();
+}
+
+void fermePortes() {
+    // Fermeture des portes
+    fermePorte2();
+}
+
+void ouvrePorte1() {
+    // Ouverture de la porte 1
+    digitalWrite(P12,LOW);
+    digitalWrite(P11,HIGH);
+}
+
+void fermePorte1() {
+    // Fermeture de la porte 1
+    digitalWrite(P11,LOW);
+    digitalWrite(P12,HIGH);
+}
+
+void ouvrePorte2() {
+    // Ouverture de la porte 2
+}
+
+void fermePorte2() {
+    // Fermeture de la porte 2
+}
 /************************/
 /* FONCTIONS ROLLOFFINO */
 /************************/
