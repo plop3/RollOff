@@ -1,6 +1,5 @@
 - Gestion des boutons (clef + bouton vert)
   - Appui long: ouverture/fermeture des portes
-  - Appui court: ouverture/fermeture de l'abri
 - Gestion de l'afficheur Oled
 - Gestion des leds (verte et bleue)
   - Verte: Abri ouvert
@@ -8,8 +7,6 @@
 - Commandes par port série (commandes Indi)
 - Arrets d'urgence
 - Gestion des sécurités:
-  - Temps mini ouverture des portes
-  - Temps mini déplacement de l'abri
   - Déplacement non prévu de l'abri ouvert
   - Le télescope bouge pendant le déplacement ou la fermeture des portes
 - Gestion des éclairages
@@ -28,6 +25,5 @@
 
 
 NOTES
-- Après ARU, annuler les flags déplacement en cours
 - Abri ouvert et fermé -> Erreur
 - Abri ni ouvert, ni fermé -> considéré comme ouvert pour les commandes
