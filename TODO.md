@@ -1,5 +1,9 @@
+TODO
+- Retour des infos en commande manuelle
+- Nettoyage et refonte de la partie rolloffindi
 - Gestion des boutons (clef + bouton vert)
   - Appui long: ouverture/fermeture des portes
+      Si portes ouvertes: attente 3s puis fermeture des portes si bouton ON, sinon, ouverture de l'abri
 - Gestion de l'afficheur Oled
 - Gestion des leds (verte et bleue)
   - Verte: Abri ouvert
@@ -22,8 +26,21 @@
   - Bouton rouge: sélection de la fonction
   - Bouton vert: exécution de la fonction
 - AJout du capteur de pluie
+- Gestion arrêt (pas ARU) ?
+- Commandes additionnelles:
+  - Ouvre portes
+  - Ferme portes
+  - Ouvre porte 1
+  - Ferme porte 1
+  - Gestion des éclairages
+  - MQTT (état abri, portes, park, éclairages)
+  - Serveur Web (infos + commandes)
 
-
+IndiDuino:
+----------
+- Ajout Lock
+- Ajout Aux
+- Lock: non ARU ?
 NOTES
 - Abri ouvert et fermé -> Erreur
 - Abri ni ouvert, ni fermé -> considéré comme ouvert pour les commandes

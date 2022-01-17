@@ -13,7 +13,7 @@
 /**************/
 /* PARAMETRES */
 /**************/
-#define BAUDRATE 38400 // Vitesse du port série
+#define BAUDRATE 9600 // Vitesse du port série
 #define RON HIGH       // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
 #define DELAIPORTES 40000L     // Durée d'ouverture/fermeture des portes (40000L)
@@ -448,7 +448,7 @@ void readUSB()
         if (parseCommand())
         {
             unsigned long timeNow = millis();
-            int hold = 0;
+            //int hold = 0;
             int relay = -1; // -1 = not found, 0 = not implemented, pin number = supported
             int sw = -1;    //      "                 "                    "
             bool connecting = false;
@@ -470,17 +470,19 @@ void readUSB()
                 if (strcmp(target, "OPEN") == 0)
                 {
                     command_input = CMD_OPEN;
-                    //relay = FUNC_OPEN;
+                    ouvreAbri();
+                    relay = 1;
                     //hold = FUNC_OPEN_HOLD;
-                    //timeMove = timeNow;
+                    timeMove = timeNow;
                 }
                 // Prepare to CLOSE
                 else if (strcmp(target, "CLOSE") == 0)
                 {
                     command_input = CMD_CLOSE;
-                    //relay = FUNC_CLOSE;
+                    fermeAbri();
+                    relay = 1;
                     //hold = FUNC_CLOSE_HOLD;
-                    //timeMove = timeNow;
+                    timeMove = timeNow;
                 }
                 // Prepare to ABORT
                 else if (strcmp(target, "ABORT") == 0)
@@ -494,7 +496,8 @@ void readUSB()
                     }
                     else
                     {
-                        //relay = FUNC_STOP;
+                        ARU();
+                        relay = 1;
                         //hold = FUNC_STOP_HOLD;
                     }
                 }
@@ -519,14 +522,14 @@ void readUSB()
             // GET: OPENED, CLOSED, LOCKED, AUXSTATE
             else if (strcmp(command, "GET") == 0)
             {
-                //if (strcmp(target, "OPENED") == 0)
-                //    sw = SWITCH_OPENED;
-                //else if (strcmp(target, "CLOSED") == 0)
-                //    sw = SWITCH_CLOSED;
-                //else if (strcmp(target, "LOCKED") == 0)
-                //    sw = SWITCH_LOCKED;
-                //else if (strcmp(target, "AUXSTATE") == 0)
-                //    sw = SWITCH_AUX;
+                if (strcmp(target, "OPENED") == 0)
+                    sw = AbriOuvert;
+                else if (strcmp(target, "CLOSED") == 0)
+                    sw = AbriFerme;
+                else if (strcmp(target, "LOCKED") == 0)
+                    sw = 0;
+                else if (strcmp(target, "AUXSTATE") == 0)
+                    sw = 0;
             }
 
             /*
@@ -540,27 +543,30 @@ void readUSB()
                 }
 
                 // Command or Request not implemented
+                /*
                 else if ((relay == 0 || relay == -1) && (sw == 0 || sw == -1))
                 {
                     strcpy(value, "OFF"); // Request Not implemented
-                    //sendNak(ERROR9);
+                    sendNak(ERROR9);
                     sendAck(value);
                 }
-
+                */
                 // Valid input received
 
                 // A command was received
                 // Set the relay associated with the command and send acknowlege to host
+                
                 else if (relay > 0) // Set Relay response
                 {
-                    commandReceived(relay, hold, value);
+                    commandReceived(relay, value);
                 }
-
+                
                 // A state request was received
-                else if (sw > 0) // Get switch response
+                else if (sw > -1) // Get switch response
                 {
                     requestReceived(sw);
                 }
+                
             } // end !connecting
         }     // end command parsed
     }         // end Serial input found
@@ -674,9 +680,10 @@ void sendAck(char* val)
   }
 }
 
-void commandReceived(int relay, int hold, char* value)
+
+void commandReceived(int relay, char* value)
 {
-  setRelay(relay, hold, value);
+  //setRelay(relay, hold, value);
   sendAck(value);         // Send acknowledgement that relay pin associated with "target" was activated to value requested
 }
 
@@ -685,6 +692,8 @@ void requestReceived(int sw)
   getSwitch(sw, value);
   sendAck(value);            // Send result of reading pin associated with "target" 
 }
+
+/*
 
 void setRelay(int id, int hold, char* value)
 {
@@ -705,14 +714,15 @@ void setRelay(int id, int hold, char* value)
   }
   //delay(RELAY_POST_DELAY);
 } 
-
+*/
 void getSwitch(int id, char* value)
 {
-  //if (digitalRead(id) == OPEN_CONTACT)
-  //  strcpy(value, "OFF");
-  //else
-  //  strcpy(value, "ON");  
+  if (!id)
+    strcpy(value, "OFF");
+  else
+    strcpy(value, "ON");  
 }
+
 
 bool isStopAllowed()
 {
@@ -736,6 +746,7 @@ bool isStopAllowed()
   }
 }
 
+/*
 bool isSwitchOn(int id)
 {
   char switch_value[16+1];
@@ -746,3 +757,4 @@ bool isSwitchOn(int id)
   }   
   return false;
 }
+*/
