@@ -1,6 +1,6 @@
 TODO
 - Retour des infos en commande manuelle
-- Nettoyage et refonte de la partie rolloffindi
+- Vérifier qu'on ne puisse pas relancer une commande de déplacement tant que l'abri se déplace
 - Gestion des boutons (clef + bouton vert)
   - Appui long: ouverture/fermeture des portes
       Si portes ouvertes: attente 3s puis fermeture des portes si bouton ON, sinon, ouverture de l'abri

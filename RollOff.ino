@@ -206,14 +206,23 @@ void loop()
         ARU();
 
     // Gestion des appuis bouton
-    // TODO Appui long sur les boutons
-    if (!digitalRead(BVERT) || (!digitalRead(BCLEF) && !AbriOuvert))
+    // Appui long avec la clef: ouverture des portes
+    // Portes ouvertes et clef: fermeture des portes
+    if (!digitalRead(BCLEF) && !AbriOuvert) {
+        REMOTE = false;
+        if (!PortesOuvert) {
+            BappuiLong=false;
+            timer.setTimeout(3000,appuiLong);
+            ouvreAbri();
+        }
+        else if (AbriFerme) fermePortes();
+    }
+    else if (!digitalRead(BVERT))
     {
-        //timer.setTimeout(3000,appuiLong);
         REMOTE = false;
         ouvreAbri();
     }
-    if (!digitalRead(BROUGE) || (!digitalRead(BCLEF) && !AbriFerme))
+    else if (!digitalRead(BROUGE) || (!digitalRead(BCLEF) && AbriOuvert))
     {
         REMOTE = false;
         fermeAbri();
@@ -234,7 +243,7 @@ void ouvreAbri()
     // Abri déjà ouvert
     if (AbriOuvert || AbriCours || ArretCours)
         return;
-        sendMsg("Ouvre abri");
+    sendMsg("Ouvre abri");
     if (!MotAbriOk || !MoteurStatus)
     {
         StartMot;
@@ -325,11 +334,6 @@ void fermePorte1()
     // Fermeture de la porte 1
     FermeP1;
     PorteCours = false;
-    if (BappuiLong)
-    {
-        BappuiLong = false;
-        ArretCours = false;
-    }
 }
 
 void ouvrePorte2()
