@@ -248,10 +248,17 @@ void ouvreAbri()
 // Fermeture de l'abri
 void fermeAbri()
 {
-    if (AbriFerme || AbriCours || ArretCours)
+    if ( AbriCours || ArretCours)
         return;
-    sendMsg("Ferme abri");
-    deplaceAbri(); // Fermeture différée des portes après fermeture de l'abri
+    if (AbriFerme && !AbriOuvert) {
+        // Abri fermé et portes ouvertes, on ferme les portes
+        sendMsg("Ferme portes");
+        TempoDepl=false;
+    }
+    else {
+        sendMsg("Ferme abri");
+        deplaceAbri(); // Fermeture différée des portes après fermeture de l'abri
+    }
     ArretCours = true;
 }
 
