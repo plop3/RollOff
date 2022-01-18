@@ -515,6 +515,14 @@ void readUSB()
                 delay(300);
                 pinMode(RESETMEGA, OUTPUT);
             }
+            else if (strcmp(target, "OPENDOOR1") == 0) {
+                sendAck(value);
+                ouvrePorte1();
+            }
+            else if (strcmp(target, "CLOSEDOOR1") == 0) {
+                sendAck(value);
+                if (AbriFerme && ! AbriOuvert) fermePorte1();
+            }
             else sendNak(error);
         }
         // Handle requests to obtain the status of switches

@@ -25,5 +25,6 @@ Commande étendues:
     SET:CLOSEDOORS
     SET:OPENDOOR1
     SET:CLOSEDOOR1
+    SET:RESET           Reset de l'Arduino
 
 
