@@ -1,6 +1,10 @@
 Commandes Rolloff:
 ------------------
-(:Command:Target:value)
+CON( : : )
+SET(CLOSE: :)
+GET(OPENED: :)
+GET(CLOSED: :)
+
 
 Commande standard:
 ------------------

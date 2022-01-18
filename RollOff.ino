@@ -125,7 +125,7 @@ bool TempoPortes = false; // Temporisation ouverture portes
 bool REMOTE = true;       // Mode manuel/automatique (Manuel: commandes par boutons)
 bool BappuiLong = false;  // Appui long sur le bouton vert ou la clef
 
-//---------- RollOffIno
+//---------- RollOffIno ----------
 const int cLen = 15;
 const int tLen = 15;
 const int vLen = MAX_RESPONSE;
@@ -133,15 +133,6 @@ char command[cLen+1];
 char value[vLen+1];
 char target[tLen+1];
 unsigned long timeMove = 0;
-
-enum cmd_input {
-CMD_NONE,  
-CMD_OPEN,
-CMD_CLOSE,
-CMD_STOP,
-CMD_LOCK,
-CMD_AUXSET
-} command_input;
 
 /*********/
 /* SETUP */
@@ -240,10 +231,10 @@ void loop()
 // Ouverture de l'abri
 void ouvreAbri()
 {
-    sendMsg("Ouvre abri");
     // Abri déjà ouvert
     if (AbriOuvert || AbriCours || ArretCours)
         return;
+        sendMsg("Ouvre abri");
     if (!MotAbriOk || !MoteurStatus)
     {
         StartMot;
@@ -257,20 +248,20 @@ void ouvreAbri()
 // Fermeture de l'abri
 void fermeAbri()
 {
-    sendMsg("Ferme abri");
     if (AbriFerme || AbriCours || ArretCours)
         return;
+    sendMsg("Ferme abri");
     deplaceAbri(); // Fermeture différée des portes après fermeture de l'abri
     ArretCours = true;
 }
 
 void deplaceAbri()
 {
-    sendMsg("Deplace abri");
     // Moteur pas pret, portes non ouvertes
     if (!MotAbriOk || !PortesOuvert)
         return;
     // Commande du moteur de l'abri
+    sendMsg("Deplace abri");
     CmdMotOn;
     delay(IMPMOT);
     CmdMotOff;
@@ -285,9 +276,9 @@ void deplaceAbri()
 // Ouverture des portes
 void ouvrePortes()
 {
-    sendMsg("Ouvre portes");
     if (PorteCours)
         return;
+    sendMsg("Ouvre portes");
     // Ouverture de la porte 1
     ouvrePorte1();
     timer.setTimeout(INTERVALLEPORTES, ouvrePorte2);
@@ -301,13 +292,13 @@ void ouvrePortes()
 
 void fermePortes()
 {
-    sendMsg("Ferme portes");
     if (PorteCours)
         return; // Evite les commandes multiples
     // Fermeture des portes
     // Abri fermé on ferme les portes
     if (AbriFerme)
     {
+        sendMsg("Ferme portes");
         fermePorte2();
         PorteCours = true;
         timer.setTimeout(INTERVALLEPORTES, fermePorte1);
@@ -354,6 +345,7 @@ void fermePorte2()
     FermeP2;
 }
 
+//---------- Fonctions Timer ----------
 void initMotOk()
 {
     sendMsg("Init moteur OK");
@@ -383,6 +375,7 @@ void appuiLong()
         sendMsg("Appui long");
     }
 }
+
 void ARU()
 {
     sendMsg("ARU");
@@ -427,224 +420,115 @@ void sendMsg(String message)
 
 void readIndi()
 {
-    while (Serial.available() <= 0)
+    if (Serial.available())
     {
-        for (int cnt = 0; cnt < 60; cnt++)
-        {
-            if (Serial.available() > 0)
-                break;
-            else
-                delay(100);
-        }
+        readUSB();
     }
-    readUSB();
+}
+
+bool parseCommand() // (command:target:value)
+{
+    char inpBuf[MAX_INPUT+1];
+    memset(inpBuf, 0, sizeof(inpBuf));
+    //memset(command, 0, sizeof(command));
+    //memset(target, 0, sizeof(target));
+    //memset(value, 0, sizeof(value));
+	if (Serial.readBytesUntil(')',inpBuf,MAX_INPUT)>7) {
+        sendMsg(inpBuf);
+		strcpy(command, strtok(inpBuf, "(:"));
+        strcpy(target, strtok(NULL, ":"));
+        strcpy(value, strtok(NULL, ")"));
+        
+         if ((strlen(command) > 2) && strlen(target) && strlen(value))
+        {
+            return true;
+        }
+	}
+    sendNak(ERROR7);
+    return false;
 }
 
 void readUSB()
 {
     // Confirm there is input available, read and parse it.
-    if (Serial && (Serial.available() > 0))
+    if (parseCommand())
     {
-        if (parseCommand())
+        const char *error = ERROR8;
+        // On initial connection return the version
+        if (strcmp(command, "CON") == 0)
         {
-            unsigned long timeNow = millis();
-            //int hold = 0;
-            int relay = -1; // -1 = not found, 0 = not implemented, pin number = supported
-            int sw = -1;    //      "                 "                    "
-            bool connecting = false;
-            const char *error = ERROR8;
-
-            // On initial connection return the version
-            if (strcmp(command, "CON") == 0)
+            strcpy(value, VERSION_ID); // Can be seen on host to confirm what is running
+            sendAck(value);
+			return;
+        }
+        // Map the general input command term to the local action
+        // SET: OPEN, CLOSE, ABORT, LOCK, AUXSET
+        else if (strcmp(command, "SET") == 0)
+        {
+            // Prepare to OPEN
+            if (strcmp(target, "OPEN") == 0)
             {
-                connecting = true;
-                strcpy(value, VERSION_ID); // Can be seen on host to confirm what is running
+                ouvreAbri();
+				sendAck(value);
+                timeMove = millis();
+            }
+            // Prepare to CLOSE
+            else if (strcmp(target, "CLOSE") == 0)
+            {
+                fermeAbri();
                 sendAck(value);
+                timeMove = millis();
             }
-
-            // Map the general input command term to the local action
-            // SET: OPEN, CLOSE, ABORT, LOCK, AUXSET
-            else if (strcmp(command, "SET") == 0)
+            // Prepare to ABORT
+            else if (strcmp(target, "ABORT") == 0)
             {
-                // Prepare to OPEN
-                if (strcmp(target, "OPEN") == 0)
+                // Test whether or not to Abort
+                if (!isStopAllowed())
                 {
-                    command_input = CMD_OPEN;
-                    ouvreAbri();
-                    relay = 1;
-                    //hold = FUNC_OPEN_HOLD;
-                    timeMove = timeNow;
+                    error = ERROR10;
                 }
-                // Prepare to CLOSE
-                else if (strcmp(target, "CLOSE") == 0)
+                else
                 {
-                    command_input = CMD_CLOSE;
-                    fermeAbri();
-                    relay = 1;
-                    //hold = FUNC_CLOSE_HOLD;
-                    timeMove = timeNow;
-                }
-                // Prepare to ABORT
-                else if (strcmp(target, "ABORT") == 0)
-                {
-                    command_input = CMD_STOP;
-
-                    // Test whether or not to Abort
-                    if (!isStopAllowed())
-                    {
-                        error = ERROR10;
-                    }
-                    else
-                    {
-                        ARU();
-                        relay = 1;
-                        //hold = FUNC_STOP_HOLD;
-                    }
-                }
-                // Prepare for the Lock function
-                else if (strcmp(target, "LOCK") == 0)
-                {
-                    command_input = CMD_LOCK;
-                    //relay = FUNC_LOCK;
-                    //hold = FUNC_LOCK_HOLD;
-                }
-
-                // Prepare for the Auxiliary function
-                else if (strcmp(target, "AUXSET") == 0)
-                {
-                    command_input = CMD_AUXSET;
-                    //relay = FUNC_AUX;
-                    //hold = FUNC_AUX_HOLD;
-                }
-            }
-
-            // Handle requests to obtain the status of switches
-            // GET: OPENED, CLOSED, LOCKED, AUXSTATE
-            else if (strcmp(command, "GET") == 0)
-            {
-                if (strcmp(target, "OPENED") == 0)
-                    sw = AbriOuvert;
-                else if (strcmp(target, "CLOSED") == 0)
-                    sw = AbriFerme;
-                else if (strcmp(target, "LOCKED") == 0)
-                    sw = 0;
-                else if (strcmp(target, "AUXSTATE") == 0)
-                    sw = 0;
-            }
-
-            /*
-       * See if there was a valid command or request 
-       */
-            if (!connecting)
-            {
-                if ((relay == -1) && (sw == -1))
-                {
-                    sendNak(error); // Unknown input or Abort command was rejected
-                }
-
-                // Command or Request not implemented
-                /*
-                else if ((relay == 0 || relay == -1) && (sw == 0 || sw == -1))
-                {
-                    strcpy(value, "OFF"); // Request Not implemented
-                    sendNak(ERROR9);
+                    ARU();
                     sendAck(value);
                 }
-                */
-                // Valid input received
-
-                // A command was received
-                // Set the relay associated with the command and send acknowlege to host
-                
-                else if (relay > 0) // Set Relay response
-                {
-                    commandReceived(relay, value);
-                }
-                
-                // A state request was received
-                else if (sw > -1) // Get switch response
-                {
-                    requestReceived(sw);
-                }
-                
-            } // end !connecting
-        }     // end command parsed
-    }         // end Serial input found
-}
-
-bool parseCommand() // (command:target:value)
-{
-    bool start = false;
-    bool eof = false;
-    int recv_count = 0;
-    int wait = 0;
-    int offset = 0;
-    char startToken = '(';
-    char endToken = ')';
-    const int bLen = MAX_INPUT;
-    char inpBuf[bLen + 1];
-
-    memset(inpBuf, 0, sizeof(inpBuf));
-    memset(command, 0, sizeof(command));
-    memset(target, 0, sizeof(target));
-    memset(value, 0, sizeof(value));
-
-    while (!eof && (wait < 20))
-    {
-        if (Serial.available() > 0)
-        {
-            Serial.setTimeout(1000);
-            recv_count = Serial.readBytes((inpBuf + offset), 1);
-            if (recv_count == 1)
-            {
-                offset++;
-                if (offset >= MAX_INPUT)
-                {
-                    sendNak(ERROR3);
-                    return false;
-                }
-                if (inpBuf[offset - 1] == startToken)
-                {
-                    start = true;
-                }
-                if (inpBuf[offset - 1] == endToken)
-                {
-                    eof = true;
-                    inpBuf[offset] = '\0';
-                }
-                continue;
             }
-        }
-        wait++;
-        delay(100);
-    }
+            // Prepare for the Lock function
+            else if (strcmp(target, "LOCK") == 0)
+            {
+            }
 
-    if (!start || !eof)
-    {
-        if (!start && !eof)
-            sendNak(ERROR4);
-        else if (!start)
-            sendNak(ERROR5);
-        else if (!eof)
-            sendNak(ERROR6);
-        return false;
-    }
-    else
-    {
-        strcpy(command, strtok(inpBuf, "(:"));
-        strcpy(target, strtok(NULL, ":"));
-        strcpy(value, strtok(NULL, ")"));
-        if ((strlen(command) >= 3) && (strlen(target) >= 1) && (strlen(value) >= 1))
-        {
-            return true;
+            // Prepare for the Auxiliary function
+            else if (strcmp(target, "AUXSET") == 0)
+            {
+            }
+            else sendNak(error);
         }
-        else
+        // Handle requests to obtain the status of switches
+        // GET: OPENED, CLOSED, LOCKED, AUXSTATE
+        else if (strcmp(command, "GET") == 0)
         {
-            sendNak(ERROR7);
-            return false;
+            if (strcmp(target, "OPENED") == 0)
+				requestReceived(AbriOuvert);
+            else if (strcmp(target, "CLOSED") == 0)
+                requestReceived(AbriFerme);
+            else if (strcmp(target, "LOCKED") == 0)
+                requestReceived(0);
+            else if (strcmp(target, "AUXSTATE") == 0)
+				requestReceived(0);
+            else sendNak(error);
         }
-    }
-}
+		else {
+            sendNak(error); // Unknown input or Abort command was rejected
+        }
+        // Command or Request not implemented
+		/*
+		strcpy(value, "OFF"); // Request Not implemented
+        sendNak(ERROR9);
+        sendAck(value);
+        */
+    }   // end command parsed
+}       // end Serial input found
 
 void sendNak(const char *errorMsg)
 {
@@ -659,6 +543,7 @@ void sendNak(const char *errorMsg)
         strcat(buffer, errorMsg);
         strcat(buffer, ")");
         Serial.println(buffer);
+        sendMsg(buffer);
         Serial.flush();
     }
 }
@@ -676,53 +561,16 @@ void sendAck(char* val)
     strcat(response, val);
     strcat(response, ")");
     Serial.println(response);
+    sendMsg(response);
     Serial.flush();
   }
 }
 
-
-void commandReceived(int relay, char* value)
+void requestReceived(int state)
 {
-  //setRelay(relay, hold, value);
-  sendAck(value);         // Send acknowledgement that relay pin associated with "target" was activated to value requested
+	strcpy(value, state ? "ON":"OFF");
+	sendAck(value);            // Send result of reading pin associated with "target" 
 }
-
-void requestReceived(int sw)
-{
-  getSwitch(sw, value);
-  sendAck(value);            // Send result of reading pin associated with "target" 
-}
-
-/*
-
-void setRelay(int id, int hold, char* value)
-{
-  if (strcmp(value, "ON") == 0)
-  {
-    digitalWrite(id, LOW);            // NO RELAY would normally already be in this condition (open)
-    //delay(RELAY_PRIOR_DELAY);
-    digitalWrite(id, HIGH);           // Activate the NO relay (close it) 
-    if (hold == 0)
-    {  
-      //delay(RELAY_ON_DELAY);
-      digitalWrite(id, LOW);          // Turn NO relay off
-    }
-  }
-  else
-  {
-    digitalWrite(id, LOW);            // Turn NO relay off 
-  }
-  //delay(RELAY_POST_DELAY);
-} 
-*/
-void getSwitch(int id, char* value)
-{
-  if (!id)
-    strcpy(value, "OFF");
-  else
-    strcpy(value, "ON");  
-}
-
 
 bool isStopAllowed()
 {
@@ -746,15 +594,3 @@ bool isStopAllowed()
   }
 }
 
-/*
-bool isSwitchOn(int id)
-{
-  char switch_value[16+1];
-  getSwitch(id, switch_value);
-  if (strcmp(switch_value, "ON") == 0)
-  {
-    return true;
-  }   
-  return false;
-}
-*/
