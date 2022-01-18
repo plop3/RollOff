@@ -502,6 +502,12 @@ void readUSB()
             else if (strcmp(target, "AUXSET") == 0)
             {
             }
+            else if (strcmp(target, "RESET") == 0)
+            {
+                sendAck(value);
+                delay(300);
+                pinMode(RESETMEGA, OUTPUT);
+            }
             else sendNak(error);
         }
         // Handle requests to obtain the status of switches
