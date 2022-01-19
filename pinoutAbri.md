@@ -38,7 +38,7 @@
 | Abri fermé    | 48 |
 | Porte1        | 24 |
 | Porte2        | 25 |
-| Capteur pluie | 26 |
+| Capteur pluie | A6 |
 | Park          | A5 |
 
 | Sorties        |     |
