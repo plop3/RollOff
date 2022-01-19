@@ -1,19 +1,11 @@
 TODO
-- Commandes additionnelles:
-  - Ouvre portes
-  - Ferme portes
 - Vérifier le retour des infos en commande manuelle
 - Vérifier qu'on ne puisse pas relancer une commande de déplacement tant que l'abri se déplace
-- Arrets d'urgence
-- Gestion des sécurités:
-  - Déplacement non prévu de l'abri ouvert
-  - Le télescope bouge pendant le déplacement ou la fermeture des portes
 - Gestion des éclairages
 - Commandes par Réseau
 - Park du télescope
   - Commandes réseau
   - Commande directe par pin Park
-- Gestion du bouton rouge (ouvre/ferme porte panneau à flats)
 - Bouton noir: ouvre/ferme la porte 1 (pour réglages panneau à flats)
 - AJout du capteur de pluie
 - Gestion arrêt (pas ARU) ?

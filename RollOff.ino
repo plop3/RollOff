@@ -47,10 +47,8 @@ IPAddress myDns(192, 168, 0, 254);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 
-EthernetServer server(9999);	// Telnet connecté
-EthernetServer serverD(23);		// Console de debug
+EthernetServer server(23);		// Console de debug
 EthernetClient client = 0;
-EthernetClient clientD = 0;
 boolean alreadyConnected = false; // whether or not the client was connected previously
 
 // EEPROM
@@ -144,7 +142,6 @@ bool TempoPortes = false; // Temporisation ouverture portes
 bool REMOTE = true;       // Mode manuel/automatique (Manuel: commandes par boutons)
 bool AUTO=true;			  // Mode automatique (surveillance active)
 bool BappuiLong = false;  // Appui long sur le bouton vert ou la clef
-int TypeCom=0; 		  	  // Type de communication: 0: USB, 1: Telnet connecté (9999), 2: Telnet déconnecté (9998)
 bool LOCK=false;		  // Abri locké: Sauvegardé en EEPROM
 
 //---------- RollOffIno ----------
@@ -209,7 +206,6 @@ void setup()
     Ethernet.begin(mac, ip, myDns, gateway, subnet);
     Ethernet.init(10);
     server.begin();
-    serverD.begin();
 }
 
 /*********************/
@@ -477,13 +473,12 @@ void telnetServer()
             alreadyConnected = true;
         }
     }
-	EthernetClient clientD = serverD.available();
 }
 
 void sendMsg(String message)
 {
     // Envoi des messages
-    serverD.println(message);
+    server.println(message);
 }
 
 /************************/
@@ -492,32 +487,17 @@ void sendMsg(String message)
 
 void sendData(char* buffer) {
 	// Envoi les données sur le port USB ou Telnet
-	switch(TypeCom) {
-		case 0:	// USB
-			Serial.println(buffer);
-			//sendMsg(buffer);
-			Serial.flush();
-			break;
-		case 1:	// Port 9999
-			client.println(buffer);
-			//sendMsg(buffer);
-			client.flush();
-			break;
-	}
+	Serial.println(buffer);
+	sendMsg(buffer);
+	Serial.flush();
 }
 
 void readIndi()
 {
     if (Serial.available())
     {
-		TypeCom=0;
         readData(); // 0: port USB 1: port Telnet
     }
-	else if (client.available())
-    {
-	  TypeCom=1;
-      readData();
-	}
 }
 
 bool parseCommand() // (command:target:value)
@@ -527,14 +507,7 @@ bool parseCommand() // (command:target:value)
     //memset(command, 0, sizeof(command));
     //memset(target, 0, sizeof(target));
     //memset(value, 0, sizeof(value));
-	switch(TypeCom) {
-		case 0:
-			Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
-			break;
-		case 1:
-			client.readBytesUntil(')',inpBuf,MAX_INPUT);
-			break;
-	}
+	Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
 	strcpy(command, strtok(inpBuf, "(:"));
     strcpy(target, strtok(NULL, ":"));
     strcpy(value, strtok(NULL, ")"));
