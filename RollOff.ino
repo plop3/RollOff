@@ -6,6 +6,11 @@
   22/10/2018-16/01/2022
 */
 
+/* TODO
+Clavier i2c
+
+*/
+
 /***********/
 /* MODULES */
 /***********/
@@ -13,8 +18,8 @@
 /**************/
 /* PARAMETRES */
 /**************/
-#define BAUDRATE 9600 // Vitesse du port série
-#define RON HIGH       // Etat On pour les relais (HIGH, LOW)
+#define BAUDRATE 	9600 	   // Vitesse du port série
+#define RON HIGH       		   // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
 #define DELAIPORTES 40000L     // Durée d'ouverture/fermeture des portes (40000L)
 #define DELAIMOTEUR 30000L     // Durée d'initialisation du moteur (40000L)
@@ -22,6 +27,8 @@
 #define INTERVALLEPORTES 12000 // Intervalle entre la fermeture de la porte 1 et de la porte 2
 #define IMPMOT 500             // Durée d'impulsion moteur
 #define BAPPUILONG 3000        //Durée en ms pour un appui long sur le bouton
+#define PARKONSTEP false       // 0: Park par ESPServer, 1: Park par entrée OnStepX
+#define CAPTEURPLUIE false     // Capteur de pluie présent (true)
 
 /*****************/
 /* PERIPHERIQUES */
@@ -40,33 +47,52 @@ IPAddress myDns(192, 168, 0, 254);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 
-EthernetServer server(23);
+EthernetServer server(9999);	// Telnet connecté
+EthernetServer serverD(23);		// Console de debug
 EthernetClient client = 0;
+EthernetClient clientD = 0;
 boolean alreadyConnected = false; // whether or not the client was connected previously
+
+// EEPROM
+#include <EEPROM.h>
 
 /**************/
 /* CONSTANTES */
 /**************/
 //----------Sorties ----------
-#define CMDMOT A1     // (R1) Ouverture/fermeture abri Commande moteur de porte de garage
+#define ALIMAUX A0	  // (R0)Alimentation auxiliaire
+#define CMDMOT  A1    // (R1) Ouverture/fermeture abri Commande moteur de porte de garage
 #define ALIMMOT A2    // (R2) Alimentation 220V moteur abri
+#define ALIM12V A3	  // (R3) Alimentation 12V (non utilisé actuelllement)	
+#define ALIMTEL A4    // Alimentation télescope    Relais dans le boitier OnStep)
 #define P11 3         // (R5) LM298 1 porte 1
 #define P12 5         // (R6) LM298 2 porte 1
 #define P21 6         // (R7) LM293 3 porte 2
 #define P22 7         // (R8) LM298 4 porte 2
 #define RESETMEGA A13 // Reset de l'arduino
+#define SPARK   	8 // Sortie ordre de park vers OnStepX
+// LEDs
+#define LEDV		2 // Led verte (shield) 
+#define LEDB		9 // Led bleue (shield)		
+#define LEDAPA106  13 // LEDs APA106	
+#define NBLEDS 	   24 // Nombre total de LEDs (3 barrettes de 8 LEDs)
 
 //---------- Entrées ----------
 // Capteurs
-#define AO 49  // Capteur abri ouvert
-#define AF 48  // Capteur abri fermé
-#define PO1 24 // Capteur porte 1 ouverte
-#define PO2 25 // Capteur porte 2 ouverte
+#define AO 		49  // Capteur abri ouvert
+#define AF 		48  // Capteur abri fermé
+#define PO1 	24 	// Capteur porte 1 ouverte
+#define PO2 	25 	// Capteur porte 2 ouverte
+#define PARK  	A5	// Entrée Park: Etat du telescope 0: non parqué, 1: parqué
+#define PLUIE 	A6  // Capteur de pluie
 // Boutons
-#define BCLEF A12 // Bouton à clef d'ouverture/fermeture
-#define BVERT 34  // Bouton intérieur d'ouverture/fermeture
-#define BROUGE 46 // Bouton de sélection
-#define BARU 22   // Bouton d'arret d'urgence
+#define BCLEF  A12	// Bouton à clef d'ouverture/fermeture
+#define BVERT  	34 	// Bouton intérieur d'ouverture/fermeture
+#define BROUGE 	46 	// Bouton de sélection
+#define BNOIR  	A7 	// Bouton noir	
+#define BARU 	22  // Bouton d'arret d'urgence
+#define BLUMI  A10  // Bouton d'éclairage de l'abri   (rouge)
+#define BLUMT  A11	// Bouton d'éclairage de la table (rouge)  Interrupteur double
 
 //---------- RollOffIno ----------
 //  Maximum length of messages = 63                                               *|
@@ -96,22 +122,15 @@ const char* VERSION_ID = "V1.2-0";
 #define PortesOuvert (!digitalRead(PO1) && !digitalRead(PO2)) // Portes ouvertes
 #define AbriFerme (!digitalRead(AF))                          // Abri fermé
 #define AbriOuvert (!digitalRead(AO))                         // Abri ouvert
-#define OuvreP1             \
-    digitalWrite(P12, LOW); \
-    digitalWrite(P11, HIGH)
-#define OuvreP2             \
-    digitalWrite(P22, LOW); \
-    digitalWrite(P21, HIGH)
-#define FermeP1             \
-    digitalWrite(P11, LOW); \
-    digitalWrite(P12, HIGH)
-#define FermeP2             \
-    digitalWrite(P21, LOW); \
-    digitalWrite(P22, HIGH)
+#define OuvreP1  digitalWrite(P12, LOW);digitalWrite(P11, HIGH)
+#define OuvreP2  digitalWrite(P22, LOW);digitalWrite(P21, HIGH)
+#define FermeP1  digitalWrite(P11, LOW);digitalWrite(P12, HIGH)
+#define FermeP2  digitalWrite(P21, LOW);digitalWrite(P22, HIGH)
 #define Baru !digitalRead(BARU) // Arret d'urgence
 #define StartMot digitalWrite(ALIMMOT, RON)
 #define StopMot digitalWrite(ALIMMOT, ROFF)
 #define MoteurStatus (digitalRead(ALIMMOT) == RON) // Alimentation du moteur abri
+#define Park digitalRead(PARK)
 
 /**********************/
 /* VARIABLES GLOBALES */
@@ -123,7 +142,10 @@ bool MotAbriOk = false;   // Moteur abri prêt (allumé depuis plus de DELAIMOTE
 bool TempoDepl = false;   // Temporisation déplacement abri
 bool TempoPortes = false; // Temporisation ouverture portes
 bool REMOTE = true;       // Mode manuel/automatique (Manuel: commandes par boutons)
+bool AUTO=true;			  // Mode automatique (surveillance active)
 bool BappuiLong = false;  // Appui long sur le bouton vert ou la clef
+int TypeCom=0; 		  	  // Type de communication: 0: USB, 1: Telnet connecté (9999), 2: Telnet déconnecté (9998)
+bool LOCK=false;		  // Abri locké: Sauvegardé en EEPROM
 
 //---------- RollOffIno ----------
 const int cLen = 15;
@@ -149,14 +171,18 @@ void setup()
     pinMode(ALIMMOT, OUTPUT);
 
     // Coupure des vérins de portes
-    digitalWrite(P11, LOW);
-    pinMode(P11, OUTPUT);
-    digitalWrite(P12, LOW);
-    pinMode(P12, OUTPUT);
-    digitalWrite(P21, LOW);
-    pinMode(P21, OUTPUT);
-    digitalWrite(P22, LOW);
-    pinMode(P22, OUTPUT);
+    digitalWrite(P11, LOW);pinMode(P11, OUTPUT);
+    digitalWrite(P12, LOW);pinMode(P12, OUTPUT);
+    digitalWrite(P21, LOW);pinMode(P21, OUTPUT);
+    digitalWrite(P22, LOW);pinMode(P22, OUTPUT);
+	digitalWrite(SPARK, ROFF);pinMode(SPARK, OUTPUT);
+	digitalWrite(ALIMAUX, ROFF);pinMode(ALIMAUX, OUTPUT);
+	digitalWrite(ALIMMOT, ROFF);pinMode(ALIMMOT, OUTPUT);
+	digitalWrite(CMDMOT, ROFF);pinMode(P22, OUTPUT);
+	digitalWrite(ALIM12V, ROFF);pinMode(P22, OUTPUT);
+	digitalWrite(ALIMTEL, ROFF);pinMode(P22, OUTPUT);
+	digitalWrite(LEDV, LOW);pinMode(LEDV, OUTPUT);
+	digitalWrite(LEDB, LOW);pinMode(LEDB, OUTPUT);
     // Activation des entrées (capteurs...)
     pinMode(AO, INPUT_PULLUP);
     pinMode(AF, INPUT_PULLUP);
@@ -165,12 +191,25 @@ void setup()
     pinMode(BCLEF, INPUT_PULLUP);
     pinMode(BVERT, INPUT_PULLUP);
     pinMode(BROUGE, INPUT_PULLUP);
-    pinMode(BARU, INPUT_PULLUP);
-
+	pinMode(BNOIR, INPUT_PULLUP);
+    pinMode(BLUMI, INPUT_PULLUP);
+	pinMode(BLUMT, INPUT_PULLUP);
+	pinMode(BARU, INPUT_PULLUP);
+	pinMode(PARK, INPUT_PULLUP); // TODO Mettre à INPUT
+	pinMode(PLUIE, INPUT);
+	
+	
+	// Restauration de l'état de l'abri
+	bool alim;
+	EEPROM.get(2, alim);
+	digitalWrite(ALIMAUX, alim ? RON: ROFF);
+	EEPROM.get(0, LOCK);
+	//if (LOCK !=1) LOCK=false;// TODO Décommenter
     // Ethernet
     Ethernet.begin(mac, ip, myDns, gateway, subnet);
     Ethernet.init(10);
     server.begin();
+    serverD.begin();
 }
 
 /*********************/
@@ -229,8 +268,22 @@ void loop()
     }
     delay(100);
 
+	// Abri locké ?
+	if (LOCK && MoteurStatus) {
+		StopMot;
+		MotAbriOk = false;
+	}
     // Gestion des commandes série (Indi)
     readIndi();
+	
+	// Surveillance de l'abri
+	AUTO=false;// A SUPPRIMER
+	if (AUTO) {
+		if (AbriOuvert && AbriFerme) ARU();					// Problème de capteurs
+		if (!AbriCours && !AbriOuvert && !AbriFerme && (!Park || !PortesOuvert)) ARU(); // Déplacement intempestif de l'abri
+		if (PorteCours && !Park) ARU(); 					// Fermeture des portes et télescope plus parqué
+		if (!AbriOuvert && !AbriFerme && !Park) ARU();		// Abri en cours de déplacement et télescope plus parqué
+	}
 }
 
 /*************/
@@ -241,7 +294,7 @@ void loop()
 void ouvreAbri()
 {
     // Abri déjà ouvert
-    if (AbriOuvert || AbriCours || ArretCours)
+    if (AbriOuvert || AbriCours || ArretCours || !Park || LOCK)
         return;
     sendMsg("Ouvre abri");
     if (!MotAbriOk || !MoteurStatus)
@@ -251,13 +304,13 @@ void ouvreAbri()
         timer.setTimeout(3000, initMotOk);
     }
     ouvrePortes();
-    AbriCours = true; // Fermeture différée de l'abri après fermeture des portes
+    AbriCours = true; // Ouverture différée de l'abri après ouverture des portes
 }
 
 // Fermeture de l'abri
 void fermeAbri()
 {
-    if ( AbriCours || ArretCours)
+    if ( AbriCours || ArretCours || !Park || LOCK)
         return;
     if (AbriFerme && !AbriOuvert) {
         // Abri fermé et portes ouvertes, on ferme les portes
@@ -274,7 +327,7 @@ void fermeAbri()
 void deplaceAbri()
 {
     // Moteur pas pret, portes non ouvertes
-    if (!MotAbriOk || !PortesOuvert)
+    if (!MotAbriOk || !PortesOuvert || LOCK || !Park)
         return;
     // Commande du moteur de l'abri
     sendMsg("Deplace abri");
@@ -308,11 +361,11 @@ void ouvrePortes()
 
 void fermePortes()
 {
-    if (PorteCours)
+    if (PorteCours || LOCK || !Park)
         return; // Evite les commandes multiples
     // Fermeture des portes
     // Abri fermé on ferme les portes
-    if (AbriFerme)
+    if (AbriFerme && !AbriOuvert)
     {
         sendMsg("Ferme portes");
         fermePorte2();
@@ -351,9 +404,11 @@ void ouvrePorte2()
 
 void fermePorte2()
 {
-    sendMsg("Ferme porte 2");
-    // Fermeture de la porte 2
-    FermeP2;
+	if (!LOCK) {
+		sendMsg("Ferme porte 2");
+		// Fermeture de la porte 2
+		FermeP2;
+	}
 }
 
 //---------- Fonctions Timer ----------
@@ -380,13 +435,14 @@ void attendPortes()
 
 void appuiLong()
 {
-    if (!digitalRead(BVERT) || !digitalRead(BCLEF))
+    if (!digitalRead(BCLEF))
     {
         BappuiLong = true;
         sendMsg("Appui long");
     }
 }
 
+//---------- ARU, surveillance ----------
 void ARU()
 {
     sendMsg("ARU");
@@ -396,14 +452,18 @@ void ARU()
     digitalWrite(P12, LOW);
     digitalWrite(P21, LOW);
     digitalWrite(P22, LOW);
+	bool OldLock=LOCK;		// Sauvegarde du status lock
+	LOCK=true;
     while (!Baru)
         ;       // Appel externe à ARU
     delay(500); // Anti rebonds
     while (Baru)
         ;
+	LOCK=OldLock;		// restauration du status lock
     pinMode(RESETMEGA, OUTPUT); // Reset de l'arduino
 }
 
+//---------- Web, telnet ----------
 void telnetServer()
 {
     // Serveur Telnet
@@ -417,24 +477,47 @@ void telnetServer()
             alreadyConnected = true;
         }
     }
+	EthernetClient clientD = serverD.available();
 }
 
 void sendMsg(String message)
 {
     // Envoi des messages
-    server.println(message);
+    serverD.println(message);
 }
 
 /************************/
 /* FONCTIONS ROLLOFFINO */
 /************************/
 
+void sendData(char* buffer) {
+	// Envoi les données sur le port USB ou Telnet
+	switch(TypeCom) {
+		case 0:	// USB
+			Serial.println(buffer);
+			//sendMsg(buffer);
+			Serial.flush();
+			break;
+		case 1:	// Port 9999
+			client.println(buffer);
+			//sendMsg(buffer);
+			client.flush();
+			break;
+	}
+}
+
 void readIndi()
 {
     if (Serial.available())
     {
-        readUSB();
+		TypeCom=0;
+        readData(); // 0: port USB 1: port Telnet
     }
+	else if (client.available())
+    {
+	  TypeCom=1;
+      readData();
+	}
 }
 
 bool parseCommand() // (command:target:value)
@@ -444,22 +527,26 @@ bool parseCommand() // (command:target:value)
     //memset(command, 0, sizeof(command));
     //memset(target, 0, sizeof(target));
     //memset(value, 0, sizeof(value));
-	if (Serial.readBytesUntil(')',inpBuf,MAX_INPUT)>7) {
-        sendMsg(inpBuf);
-		strcpy(command, strtok(inpBuf, "(:"));
-        strcpy(target, strtok(NULL, ":"));
-        strcpy(value, strtok(NULL, ")"));
-        
-         if ((strlen(command) > 2) && strlen(target) && strlen(value))
-        {
-            return true;
-        }
+	switch(TypeCom) {
+		case 0:
+			Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
+			break;
+		case 1:
+			client.readBytesUntil(')',inpBuf,MAX_INPUT);
+			break;
 	}
+	strcpy(command, strtok(inpBuf, "(:"));
+    strcpy(target, strtok(NULL, ":"));
+    strcpy(value, strtok(NULL, ")"));
+    if ((strlen(command) > 2) && strlen(target) && strlen(value))
+    {
+        return true;
+    }
     sendNak(ERROR7);
     return false;
 }
 
-void readUSB()
+void readData()
 {
     // Confirm there is input available, read and parse it.
     if (parseCommand())
@@ -479,6 +566,7 @@ void readUSB()
             // Prepare to OPEN
             if (strcmp(target, "OPEN") == 0)
             {
+				REMOTE=true;
                 ouvreAbri();
 				sendAck(value);
                 timeMove = millis();
@@ -486,6 +574,7 @@ void readUSB()
             // Prepare to CLOSE
             else if (strcmp(target, "CLOSE") == 0)
             {
+				REMOTE=true;
                 fermeAbri();
                 sendAck(value);
                 timeMove = millis();
@@ -507,11 +596,20 @@ void readUSB()
             // Prepare for the Lock function
             else if (strcmp(target, "LOCK") == 0)
             {
+                sendMsg("Lock...");
+                sendMsg(value);
+				LOCK=(value=="ON");
+				EEPROM.put(0, LOCK);
+				// Sauvegarde en EEprom
+				sendAck(value);
             }
 
             // Prepare for the Auxiliary function
             else if (strcmp(target, "AUXSET") == 0)
             {
+				digitalWrite(ALIMAUX,value=="1" ? RON: ROFF);
+				EEPROM.put(2, (value=="1"));
+				sendAck(value);
             }
             else if (strcmp(target, "RESET") == 0)
             {
@@ -527,6 +625,18 @@ void readUSB()
                 sendAck(value);
                 if (AbriFerme && ! AbriOuvert) fermePorte1();
             }
+			else if (strcmp(target, "OPENDOORS") == 0) {
+				sendAck(value);
+                ouvrePortes();
+			}
+			else if (strcmp(target, "CLOSEDOORS") == 0) {
+				sendAck(value);
+                if (AbriFerme && ! AbriOuvert) {
+					fermePortes();
+					REMOTE=true;
+					sendAck(value);
+				}
+			}
             else sendNak(error);
         }
         // Handle requests to obtain the status of switches
@@ -538,9 +648,9 @@ void readUSB()
             else if (strcmp(target, "CLOSED") == 0)
                 requestReceived(AbriFerme);
             else if (strcmp(target, "LOCKED") == 0)
-                requestReceived(0);
+                requestReceived(LOCK);
             else if (strcmp(target, "AUXSTATE") == 0)
-				requestReceived(0);
+				requestReceived(digitalRead(ALIMAUX)==RON);
             else sendNak(error);
         }
 		else {
@@ -567,9 +677,7 @@ void sendNak(const char *errorMsg)
         strcat(buffer, ":");
         strcat(buffer, errorMsg);
         strcat(buffer, ")");
-        Serial.println(buffer);
-        sendMsg(buffer);
-        Serial.flush();
+		sendData(buffer);
     }
 }
 
@@ -585,9 +693,7 @@ void sendAck(char* val)
     strcat(response, ":");
     strcat(response, val);
     strcat(response, ")");
-    Serial.println(response);
-    sendMsg(response);
-    Serial.flush();
+	sendData(response);
   }
 }
 
@@ -618,4 +724,3 @@ bool isStopAllowed()
     return true;
   }
 }
-

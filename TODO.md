@@ -1,14 +1,9 @@
 TODO
-- Retour des infos en commande manuelle
+- Commandes additionnelles:
+  - Ouvre portes
+  - Ferme portes
+- Vérifier le retour des infos en commande manuelle
 - Vérifier qu'on ne puisse pas relancer une commande de déplacement tant que l'abri se déplace
-- Gestion des boutons (clef + bouton vert)
-  - Appui long: ouverture/fermeture des portes
-      Si portes ouvertes: attente 3s puis fermeture des portes si bouton ON, sinon, ouverture de l'abri
-- Gestion de l'afficheur Oled
-- Gestion des leds (verte et bleue)
-  - Verte: Abri ouvert
-  - Bleue: mode manuel
-- Commandes par port série (commandes Indi)
 - Arrets d'urgence
 - Gestion des sécurités:
   - Déplacement non prévu de l'abri ouvert
@@ -19,22 +14,33 @@ TODO
   - Commandes réseau
   - Commande directe par pin Park
 - Gestion du bouton rouge (ouvre/ferme porte panneau à flats)
+- Bouton noir: ouvre/ferme la porte 1 (pour réglages panneau à flats)
+- AJout du capteur de pluie
+- Gestion arrêt (pas ARU) ?
+- Commandes additionnelles:
+  - Gestion des éclairages
+  - MQTT (état abri, portes, park, éclairages)
+  - Serveur Web (infos + commandes)
+- Gestion de l'afficheur Oled
+- Gestion des leds (verte et bleue)
+  - Verte: Abri ouvert
+  - Bleue: mode manuel
+
 - Gestion du mode manuel:
   - Bouton noir: 
       - Appui long: mode manuel/auto
       - Appui court: afficheur Oled on/off (5mn)
   - Bouton rouge: sélection de la fonction
   - Bouton vert: exécution de la fonction
-- AJout du capteur de pluie
-- Gestion arrêt (pas ARU) ?
-- Commandes additionnelles:
-  - Ouvre portes
-  - Ferme portes
-  - Ouvre porte 1
-  - Ferme porte 1
-  - Gestion des éclairages
-  - MQTT (état abri, portes, park, éclairages)
-  - Serveur Web (infos + commandes)
+    - Fonctions:
+        - Ouvre portes
+        - Ferme portes
+        - Ouvre porte 1
+        - Ferme porte 1
+        - Ouvre porte 2
+        - Déplace abri (validation si portes non ouvertes)
+        - Réglage des éclairages
+        - Gestion park O/N ?
 
 IndiDuino:
 ----------

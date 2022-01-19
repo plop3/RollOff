@@ -26,5 +26,16 @@ Commande étendues:
     SET:OPENDOOR1
     SET:CLOSEDOOR1
     SET:RESET           Reset de l'Arduino
+    
+Commandes (test):
+-----------------
+    (:GET:OPENED: )
+    (:GET:CLOSED: )
+    (:SET:OPEN: )
+    (:SET:CLOSE: )
+    (:SET:OPENDOOR1: )
+    (:SET:CLOSEDOOR1: )
+    (:SET:RESET: )
+    (:CON: : )
 
 
