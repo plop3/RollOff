@@ -36,6 +36,8 @@ Commandes (test):
     (:SET:OPENDOOR1: )
     (:SET:CLOSEDOOR1: )
     (:SET:RESET: )
+    (:SET:DEBUG:OFF)
+    (:SET:DEBUG:ON)
     (:CON: : )
 
 
