@@ -1,10 +1,11 @@
 TODO
 - [OK] Bouton vert: ouvre/ferme abri (portes appui long)
 - [OK] Bouton rouge: Ouvre/ferme porte 2 (si porte 1 ouverte)
-- Bouton noir+rouge: Ferme l'abri de façon inconditionnelle
-- Bouton noir+vert: Déplace l'abri de façon inconditionnelle  
-- Gestion AUTO/MANUEL (Indi/Boutons)                                                           
-
+- [OK] Bouton noir+rouge: Ferme l'abri de façon inconditionnelle
+- [OK] Bouton noir+vert: Déplace l'abri de façon inconditionnelle  
+- [OK] Gestion AUTO/MANUEL (Indi/Boutons)                                                           
+- Câbler le reset sur le shield
+- Console de déboguage Oled
 - Console de déboguage telnet
 - Accès réseau (Indi)
 OK (A tester)

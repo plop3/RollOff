@@ -13,15 +13,15 @@
 /**************/
 /* PARAMETRES */
 /**************/
-#define DEBUG		true	   // Déboguage sur le port série	
-#define BAUDRATE 	9600 	   // Vitesse du port série
-#define RON HIGH       		   // Etat On pour les relais (HIGH, LOW)
+#define DEBUG	 true	    	            // Déboguage sur le port série	
+#define BAUDRATE 	9600 	          // Vitesse du port série
+#define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
-#define DELAIPORTES       10000L //40000L     // Durée d'ouverture/fermeture des portes (40000L)
-#define INTERVALLEPORTES  4000L  //12000 // Intervalle entre la fermeture de la porte 1 et de la porte 2
-#define DELAIABRI         10000L //22000L       // Durée de déplacement de l'abri (15000L)
-#define IMPMOT 500             // Durée d'impulsion moteur
-#define BAPPUILONG 3000        //Durée en ms pour un appui long sur le bouton
+#define DELAIPORTES       10000L  //40000L     // Durée d'ouverture/fermeture des portes (40000L)
+#define INTERVALLEPORTES  4000L   //12000 // Intervalle entre la fermeture de la porte 1 et de la porte 2
+#define DELAIABRI         10000L  //22000L       // Durée de déplacement de l'abri (15000L)
+#define IMPMOT 500                // Durée d'impulsion moteur
+#define BAPPUILONG 3000           //Durée en ms pour un appui long sur le bouton
 
 /*****************/
 /* PERIPHERIQUES */
@@ -43,6 +43,17 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
    8-15:Eclairage intérieur
    16-23: Eclairage extérieur
 */
+
+// Afficheur OLED SSD1306
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET     -1
+#define SCREEN_ADDRESS 0x3C
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 /**************/
 /* CONSTANTES */
@@ -122,13 +133,15 @@ bool PortesFerme = true;
 bool DEPL = false;    		// Abri en cours de déplacement
 bool FERM = false;    		// Portes en cours de fermeture
 bool OUVR = false;			// Portes en cours d'ouverture
-bool AUTO = true;       // Mode auto (distant), manuel (boutons)
+bool REMOTE = true;       // Mode auto (distant), manuel (boutons)
 bool MotAbriOk = false;   	// Moteur abri prêt (allumé depuis plus de DELAIMOTEUR secondes)
 bool BLUMTO = !digitalRead(BLUMT);  // Dernier etat du bouton d'éclairage table
 bool BLUMIO = !digitalRead(BLUMI);  // Dernier etat du bouton d'éclairage intérieur
 bool DebugMode=DEBUG;		// Mode débug console	
 bool BappuiLong = false;  	// Appui long sur le bouton vert ou la clef
 bool Tempo1=false;        // Temporisation à usages multiples
+String Message = "";                // Message affiché sur l'écran OLED
+bool AbriStop=true;       // Etat de l'abri (start=false, stop=true)
 
 //---------- RollOffIno ----------
 const int cLen = 15;
@@ -153,9 +166,20 @@ void setup() {
   barre(0, 0); // Extinction des barres de LEDs
   barre(1, 0);
   barre(2, 0);
+
+  //SSD1306
+  display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
+  //display.display();
+  display.clearDisplay();
+  display.setTextSize(3);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.cp437(true);
+  display.display();
   
   // Initialisation des relais
-  CmdMotOff; pinMode(ALIMMOT, OUTPUT); // Coupure de la commande du moteur de déplacement
+  CmdMotOff; pinMode(CMDMOT, OUTPUT); // Coupure de la commande du moteur de déplacement
+  stopMot; pinMode(ALIMMOT,OUTPUT);
   // Initialisation du LM298
   digitalWrite(P11, LOW); pinMode(P11, OUTPUT);
   digitalWrite(P12, LOW); pinMode(P12, OUTPUT);
@@ -176,9 +200,11 @@ void setup() {
   // Abri fermé: moteur abri OFF, sinon ON
   if (!PortesOuvert) {
 	stopMot();pinMode(ALIMMOT, OUTPUT);
+  AbriStop=true;
   }
   else {
 	startMot();pinMode(ALIMMOT, OUTPUT);  
+  AbriStop=false;
 	PortesFerme=false;
   }
 }
@@ -196,7 +222,7 @@ void loop() {
 bool deplaceAbri() {
   // Déplace l'abri
   if (!PortesOuvert) return false;
-  sendMsg("Déplace abri");
+  sendMsg("Depl abri");
   barre(0, 128);
   CmdMotOn;
   delay(IMPMOT);
@@ -208,11 +234,11 @@ bool deplaceAbri() {
   DEPL = false;
   barre(0, 0);
   return true;
-  sendMsg("Fin déplace abri");
+  sendMsg("Fin depl");
 }
 
 bool deplaceAbriInsecure() {
-  sendMsg("Déplace abri (insécure)");
+  sendMsg("Depl abri");
   barre(0, 128);
   if (!MoteurStatus) startMot();
   while (!MotAbriOk) pool();
@@ -223,13 +249,13 @@ bool deplaceAbriInsecure() {
   attend(DELAIABRI, DEPL);
   barre(0, 0);
   DEPL=false;
-  sendMsg("Fin déplace abri (insécure)");
+  sendMsg("Fin depl");
 }
 bool ouvreAbri() {
 	// Ouvre l'abri
   if (DEPL) return false; 			// Abri en cours de déplacement
   if (AbriOuvert) return true;  	// Abri déjà ouvert
-  sendMsg("Ouvre abri");
+  sendMsg("Ouv abri");
   if (!MoteurStatus) startMot();	// Démarrage du moteur abri
   // Gestion appui long (clef et bouton vert)
   if (PortesOuvert) {
@@ -242,7 +268,7 @@ bool ouvreAbri() {
         DEPL=true;                  // bloque les nouvelles commandes le temps que MotAbriOK=true
 			  while (!MotAbriOk) pool(); 	// Attend que le moteur soit initialisé
 			  if (deplaceAbri() && AbriOuvert) {
-          sendMsg("Abri ouvert");
+          sendMsg("Abri ouv");
 			    return true;
 			  }
 		  }
@@ -259,38 +285,39 @@ bool fermeAbri() {
   if (DEPL) return false; // Abri en cours de déplacement
   // Ferme l'abri
   // Si les portes sont fermées et l'abri ouvert on passe temporairement en auto pour ouvrir les portes
-  bool mode=AUTO;
-  AUTO=true;
+  bool mode=REMOTE;
+  REMOTE=true;
   if (!PortesOuvert) ouvrePortes();
-  AUTO=mode;
+  REMOTE=mode;
   if (AbriFerme) return true; // Abri déjà fermé
-  sendMsg("Ferme abri");
+  sendMsg("Ferm abri");
   if (deplaceAbri() && AbriFerme) {
     if (fermePortes()) {
-      sendMsg("Abri fermé");
+      sendMsg("Abri ferm");
       return true;
     }
   }
-  sendMsg("Abri non fermé");
+  sendMsg("Abri NF");
   return false;
 }
 
 void fermePortesInsecure() {
-  sendMsg("Ferme portes (insécure)");
-  AUTO=true;
+  sendMsg("F portes");
+  REMOTE=true;
   FERM = true;
-  sendMsg("Ferme porte 2");
+  sendMsg("F P2");
   FermeP2;
   attend(INTERVALLEPORTES, FERM);
-   sendMsg("Ferme porte 1");
+   sendMsg("F P1");
   FermeP1;
   FERM=false;
-  sendMsg("Portes fermées (insécure)");
+  sendMsg("Portes F");
 }
 
 bool ouvrePortes() {
 	// Ouvre les portes
-	sendMsg("Ouvre portes");
+  AbriStop=false;
+	sendMsg("Ouv portes");
   if (PortesOuvert) {
     // Portes ouvertes
     OuvreP1;
@@ -298,13 +325,13 @@ bool ouvrePortes() {
   }
   else {
 	OUVR=true;
-  sendMsg("Ouvre porte 1");
+  sendMsg("Ouv P1");
     OuvreP1;
     attend(INTERVALLEPORTES, OUVR);
 	if (OUVR) {
-    sendMsg("Ouvre porte 2");
+    sendMsg("Ouv P2");
 		OuvreP2;
-    if (AUTO) {
+    if (REMOTE) {
 		  attend(DELAIPORTES, OUVR);
 		  while (!PortesOuvert && OUVR) pool();
     }
@@ -316,14 +343,13 @@ bool ouvrePortes() {
         timer.setTimeout(DELAIPORTES,tempo1);
         while (!PortesOuvert && OUVR && !Tempo1) pool();
       }
-
     }
     OUVR=false;
     }
   }
   if (PortesOuvert) {
     PortesFerme = false;
-    sendMsg("Portes ouvertes");
+    sendMsg("Portes O");
     return true;
   }
   return false;
@@ -332,24 +358,26 @@ bool ouvrePortes() {
 bool fermePortes() {
 	// Ferme les portes
   if (!AbriFerme || AbriOuvert) return false;
-  sendMsg("Ferme portes");
+  sendMsg("Ferm P");
   FERM = true;
-  sendMsg("Ferme porte 2");
+  sendMsg("Ferm P2");
   FermeP2;
   attend(INTERVALLEPORTES, FERM);
   if (FERM) {
-    sendMsg("Ferme porte 1");
-	FermeP1;
-	attend(DELAIPORTES,FERM);
-	if (FERM) {
-		FERM = false;
-		PortesFerme = true;
-		stopMot();
-    sendMsg("Portes fermées");
-		return true;
-	}
+    sendMsg("Ferm P1");
+	  FermeP1;
+	  attend(DELAIPORTES,FERM);
+	  if (FERM) {
+		  FERM = false;
+		  PortesFerme = true;
+		  stopMot();
+      sendMsg("Portes F");
+      timer.setTimeout(3000,arretAbri);
+      return true;
+	  }
   }
   stopMot();	// Arret du moteur de l'abri
+
   return false;
 }
 
@@ -371,26 +399,26 @@ void readBoutons() {
   if (!Bnoir) {
 	  // Touches ou clef mode principal
 	  if (Bclef || Bvert) {
-        sendMsg("Bouton déplace abri");
+        sendMsg("B vert");
 		    BappuiLong=false;
         timer.setTimeout(3000,appuiLong);
 		  // Temporisation pour appui long
 		  // Déplacement de l'abri
 			if (!AbriOuvert) {
 				// Ouverture abri (abri non fermé)
-        AUTO=false;
+        REMOTE=false;
 				ouvreAbri();
 			}
 			// Fermeture abri
 			else if (AbriOuvert) {
-        AUTO=false;
+        REMOTE=false;
 				fermeAbri();
 			}
 		}
 		else if (Brouge && Porte1Ouvert) {
 		  // Ouverture/fermeture porte 2 (pour réglage panneau à flat)
-      sendMsg("Bouton déplace porte 2");
-		  if (Porte2Ouvert) {FermeP2;sendMsg("Ferme porte 2");}  else {OuvreP2;sendMsg("Ouvre porte 2");}
+      sendMsg("B rouge");
+		  if (Porte2Ouvert) {FermeP2;sendMsg("Ferm P2");}  else {OuvreP2;sendMsg("Ouv P2");}
 		}
 	}
   else {
@@ -398,14 +426,14 @@ void readBoutons() {
 	  if (Brouge) {
 		  // Déplacement de l'abri inconditionnel (vérifie que les portes soient ouvertes)
 		  // TODO à terminer
-      AUTO=false;
+      REMOTE=false;
 		  deplaceAbriInsecure();
 	  }
 	  if (Bvert) {
 		  // Fermeture des portes inconditionnel
 		  // /!\ Fonctionnement sans tests.
 		  // TODO à terminer
-      AUTO=false;
+      REMOTE=false;
 		  fermePortesInsecure();
 	  }
   }
@@ -425,11 +453,13 @@ void pool() {
 	surv();
 	// Gestion des éclairages
 	eclairages();
+  // Afficheur OLED
+  ssd1306Info();  // Info sur l'écran OLED
 }
 
 void startMot() {
 	// Mise en marche du moteur de l'abri
-	sendMsg("Start moteur");
+	sendMsg("Start M");
 	MotOn;
   // FIXME timer.setTimeout(DELAIMOTEUR, initMotOk);
   timer.setTimeout(3000, initMotOk);
@@ -437,7 +467,7 @@ void startMot() {
 
 void stopMot() {
 	// Arret du moteur de l'abri
-	sendMsg("Stop moteur");
+	sendMsg("Stop M");
 	MotOff;
 	MotAbriOk=false;
 }
@@ -460,7 +490,7 @@ void stopAbri() {
 
 void ARU() {
 	// Arret d'urgence
-	sendMsg("Arret d'urgence");
+	sendMsg("ARU");
 	stopAbri();
 	while (!Baru);      // Appel externe à ARU
     delay(500); 		// Anti rebonds
@@ -474,25 +504,27 @@ void sendMsg(String message)
 	if (DebugMode) {
 		Serial.println(message);
 	}
+  Message=message;
+  ssd1306Info();
 }
 
 void surv() {
-  if (AUTO) return;
+  if (REMOTE) return;
   // Déplacement et le télescope perd le park
   if (DEPL && !telPark()) {
     // Arret d'urgence
-    sendMsg("Déplacement et le télescope perd le park");
+    sendMsg("Dépl park");
     stopAbri();
   }
   // Fermeture des portes et le télescope perd le park
   if (FERM && !telPark()) {
     // Arret d'urgence
-    sendMsg("Fermeture des portes et le télescope perd le park");
+    sendMsg("F P park");
     stopAbri();
   }
   // Déplacement intenpestif de l'abri sauf si portes ouvertes et télescope parqué (pour réglages...)
   if (!DEPL && !AbriOuvert && !AbriFerme && (!telPark() || !PortesOuvert)) {
-    sendMsg("Déplacement intenpestif de l'abri sauf si portes ouvertes et télescope parqué");
+    sendMsg("Err depl");
     stopAbri;
   }
 }
@@ -535,11 +567,35 @@ void barre(byte barreau, byte valeur) {
   pixels.show();
 }
 
+void ssd1306Info() {
+  // Affiche les infos sur l'état du télescope
+  if (AbriStop) return;
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.println(Message);
+  display.setTextSize(2);
+  //display.setCursor(0,18);
+  display.println(telPark() ? "Park" : "Non P.");
+  // Affiche l'état de l'abri
+  //Abri ouvert,  Abri fermé, Portes ouvertes, Alim télescope, Alim moteur,  Commande moteur
+  display.setTextSize(1);
+    if (AbriOuvert) display.print("AO ");
+  if (AbriFerme) display.print("AF ");
+  if (!digitalRead(Po1)) display.print("P1 ");
+  if (!digitalRead(Po2)) display.print("P2 ");
+  // if (Alim12VStatus) display.print("12V ");
+  if (MoteurStatus) display.print("M ");
+  if (digitalRead(CMDMOT)==RON) display.print("m ");
+  if (DEPL || FERM || OUVR) display.print("*");
+  display.display();
+}
+
 //---------- Fonctions Timer ----------
 void initMotOk()
 // Attend l'initialisation du moteur de l'abri
 {
-    sendMsg("Init moteur OK");
+    sendMsg("Init M OK");
     // Moteur abri pret
     MotAbriOk = true;
 }
@@ -550,7 +606,7 @@ void appuiLong()
     if (Bclef || Bvert)
     {
         BappuiLong = true;
-        sendMsg("Appui long");
+        sendMsg("App long");
     }
 }
 
@@ -559,6 +615,13 @@ void tempo1() {
   Tempo1=true;
 }
 
+void arretAbri() {
+  // Arrête l'abri
+  display.clearDisplay();
+  display.display();
+  // TODO éteind les lumières
+  AbriStop=true;
+}
 /************************/
 /* FONCTIONS ROLLOFFINO */
 /************************/
@@ -615,7 +678,7 @@ void readData()
             {
                 sendAck(value);
                 timeMove = millis();
-                AUTO=true;
+                REMOTE=true;
                 ouvreAbri();
             }
             // Prepare to CLOSE
@@ -623,7 +686,7 @@ void readData()
             {
                 sendAck(value);
                 timeMove = millis();
-                AUTO=true;
+                REMOTE=true;
                 fermeAbri();
             }
             // Prepare to ABORT								// Arret de l'abri
@@ -653,8 +716,8 @@ void readData()
             }
 			else if (strcmp(target, "DEBUG") == 0)			// Mode débug (ON/OFF)
 			{
-				sendMsg("Debug mode");
-                sendMsg(value);
+				sendMsg("Debug M");
+        //sendMsg(value);
 				DebugMode=(value=="ON");
 				sendAck(value);
 			}
