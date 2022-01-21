@@ -55,6 +55,25 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define SCREEN_ADDRESS 0x3C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// Serveurs Telnet
+#include <SPI.h>
+#include <Ethernet.h>
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
+IPAddress ip(192, 168, 0, 19);  // FIXME Mettre la bonne IP
+IPAddress myDns(192, 168, 0, 254);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
+
+EthernetServer server(9999);
+EthernetServer server2(9998);
+EthernetServer serverD(23);
+EthernetClient client;    // Client Telnet 9999
+EthernetClient client2;    // Client Telnet 9999
+EthernetClient clientD;    // Client Telnet console de debug
+
+boolean alreadyConnected = false; 
+
 /**************/
 /* CONSTANTES */
 /**************/
@@ -66,6 +85,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define P21     6   	// (R7) LM293 3 porte 2
 #define P22     7   	// (R8) LM298 4 porte 2
 #define RESETMEGA	A13 // Reset de l'arduino
+#define LEDV    2     // LED verte du shield
+#define LEDB    9     // LED bleue du shield
 
 //---------- Entrées ----------
 // Capteurs
@@ -151,6 +172,7 @@ char command[cLen+1];
 char value[vLen+1];
 char target[tLen+1];
 unsigned long timeMove = 0;
+int TypeCon=0;  // 0: USB, 1: Telnet 9999, 2: Telnet 9998
 
 /*********/
 /* SETUP */
@@ -198,7 +220,7 @@ void setup() {
   pinMode(BARU, INPUT_PULLUP);
   pinMode(PARK, INPUT_PULLUP); // TODO Mettre à INPUT
   // Abri fermé: moteur abri OFF, sinon ON
-  if (!PortesOuvert) {
+  if (!PortesOuvert && AbriFerme) {
 	stopMot();pinMode(ALIMMOT, OUTPUT);
   AbriStop=true;
   }
@@ -207,6 +229,10 @@ void setup() {
   AbriStop=false;
 	PortesFerme=false;
   }
+
+  // Ethernet
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
+
 }
 
 /*********************/
@@ -401,8 +427,8 @@ void readBoutons() {
 	  if (Bclef || Bvert) {
         sendMsg("B vert");
 		    BappuiLong=false;
+        // Temporisation pour appui long
         timer.setTimeout(3000,appuiLong);
-		  // Temporisation pour appui long
 		  // Déplacement de l'abri
 			if (!AbriOuvert) {
 				// Ouverture abri (abri non fermé)
@@ -424,7 +450,7 @@ void readBoutons() {
   else {
 	  // Touche en mode secondaire
 	  if (Brouge) {
-		  // Déplacement de l'abri inconditionnel (vérifie que les portes soient ouvertes)
+		  // Déplacement de l'abri inconditionnel 
 		  // TODO à terminer
       REMOTE=false;
 		  deplaceAbriInsecure();
@@ -455,6 +481,8 @@ void pool() {
 	eclairages();
   // Afficheur OLED
   ssd1306Info();  // Info sur l'écran OLED
+  // LEDs du shield
+  gereLeds();
 }
 
 void startMot() {
@@ -501,11 +529,36 @@ void ARU() {
 void sendMsg(String message)
 {
 	// Envoi des messages
+  // Sortie sur le port série
 	if (DebugMode) {
 		Serial.println(message);
 	}
+  // Sortie sur l'écran Oled
   Message=message;
   ssd1306Info();
+  // Sortie sur la console telnet
+  clientD = serverD.available();
+  if (clientD) {
+    if (!alreadyConnected) {
+      // clear out the input buffer:
+      clientD.flush();
+      clientD.println("Console debug");
+      alreadyConnected = true;
+    }
+
+    if (clientD.available() > 0) {
+      // read the bytes incoming from the client:
+      serverD.println(message);
+    }
+  }
+}
+
+void gereLeds() {
+  // Gestion des LEDs du shield
+  // LED verte: télescope parqué
+  digitalWrite(LEDV, Park);
+  // LED bleu: déplacement en cours
+  digitalWrite(LEDB, (DEPL || OUVR || FERM));
 }
 
 void surv() {
@@ -628,32 +681,58 @@ void arretAbri() {
 
 void sendData(char* buffer) {
 	// Envoi les données sur le port USB
-	Serial.println(buffer);
-	Serial.flush();
+  switch (TypeCon) {
+    case 0:
+    	Serial.println(buffer);
+	    Serial.flush();
+      break;
+    case 1:
+      client.println(buffer);
+      client.flush();
+      break;
+    case 2:
+      client2.println(buffer);
+      client2.flush();
+      client2.stop();
+      break;
+  }
 }
 
 void readIndi()
-{
-    if (Serial.available())
-    {
-        readData();
-    }
+{   
+  client2=server2.available();
+  if (client2.available()>0) {
+    TypeCon=2;
+    readData();
+  }
+  if (Serial.available())
+  {
+    TypeCon=0;
+    readData();
+  }
+  client = server.available();
+  if (client.available()>0 ) {
+    TypeCon=1;
+    readData();
+  }  
 }
 
 bool parseCommand() // (command:target:value)
 {
-    char inpBuf[MAX_INPUT+1];
-    memset(inpBuf, 0, sizeof(inpBuf));
-	Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
+  char inpBuf[MAX_INPUT+1];
+  memset(inpBuf, 0, sizeof(inpBuf));
+	if (TypeCon==0) Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
+  if (TypeCon==1) client.readBytesUntil(')',inpBuf,MAX_INPUT);
+  if (TypeCon==2) client2.readBytesUntil(')',inpBuf,MAX_INPUT);
 	strcpy(command, strtok(inpBuf, "(:"));
-    strcpy(target, strtok(NULL, ":"));
-    strcpy(value, strtok(NULL, ")"));
-    if ((strlen(command) > 2) && strlen(target) && strlen(value))
-    {
-        return true;
-    }
-    sendNak(ERROR7);
-    return false;
+  strcpy(target, strtok(NULL, ":"));
+  strcpy(value, strtok(NULL, ")"));
+  if ((strlen(command) > 2) && strlen(target) && strlen(value))
+  {
+      return true;
+  }
+  sendNak(ERROR7);
+  return false;
 }
 
 void readData()
