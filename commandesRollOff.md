@@ -40,5 +40,8 @@ Commandes (test):
     (:SET:DEBUG:ON)
     (:CON: : )
     (:GET:LOCKED: )
+    (:SET:OPENDOORS: )
+    (:SET:CLOSEDOORS: )
+    (:SET:LOCKED:OFF)
 
 

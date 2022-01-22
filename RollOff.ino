@@ -931,7 +931,7 @@ void readData()
             // Prepare for the Lock function
             else if (strcmp(target, "LOCK") == 0)			// Lock de l'abri
             {
-       				LOCK=(value=="ON");
+       				LOCK=(strcmp(value,"ON")==0);
                sendMsg(value);
       				EEPROM.put(0, LOCK);
     	  			// Sauvegarde en EEprom
@@ -941,7 +941,7 @@ void readData()
             // Prepare for the Auxiliary function
             else if (strcmp(target, "AUXSET") == 0)			// Bascule de la sorite auxiliaire
             {
-              AUX=(value=="ON");
+              AUX=(strcmp(value,"ON")==0);
               digitalWrite(ALIMAUX,AUX ? RON: ROFF);
       				EEPROM.put(0, AUX);
     	  			// Sauvegarde en EEprom
