@@ -19,6 +19,7 @@
                 "/home/serge/.arduino15/packages/arduino/hardware/avr/1.8.4/cores/arduino",
                 "/home/serge/.arduino15/packages/arduino/hardware/avr/1.8.4/variants/mega",
                 "/home/serge/Arduino/libraries/SimpleTimer",
+                "/home/serge/.arduino15/packages/arduino/hardware/avr/1.8.4/libraries/EEPROM/src",
                 "/home/serge/Arduino/libraries/Adafruit_NeoPixel",
                 "/home/serge/.arduino15/packages/arduino/hardware/avr/1.8.4/libraries/SPI/src",
                 "/home/serge/.arduino15/packages/arduino/hardware/avr/1.8.4/libraries/Wire/src",
