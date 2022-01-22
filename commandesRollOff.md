@@ -42,6 +42,6 @@ Commandes (test):
     (:GET:LOCKED: )
     (:SET:OPENDOORS: )
     (:SET:CLOSEDOORS: )
-    (:SET:LOCKED:OFF)
+    (:SET:LOCK:OFF)
 
 

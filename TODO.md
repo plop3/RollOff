@@ -11,7 +11,9 @@ TODO
 - MQTT (état abri, portes, park, éclairages)
 - Serveur Web (infos + commandes)
 
-OK (A tester)
+NOK
+
+A TESTER
 - AJout du capteur de pluie
 - Gestion des éclairages
 - Ferme abri: ajouter le park du télescope                                                     
