@@ -16,9 +16,10 @@
 #define BAUDRATE 	        9600    // Vitesse du port série
 #define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
-#define DELAIPORTES       10000L  //40000L     // Durée d'ouverture/fermeture des portes (40000L)
-#define INTERVALLEPORTES  4000L   //12000 // Intervalle entre la fermeture de la porte 1 et de la porte 2
-#define DELAIABRI         10000L  //22000L       // Durée de déplacement de l'abri (15000L)
+#define DELAIPORTES       40000L  // Durée d'ouverture/fermeture des portes (40000L)
+#define INTERVALLEPORTES  12000   // Intervalle entre la fermeture de la porte 1 et de la porte 2
+#define DELAIABRI         22000L  // Durée de déplacement de l'abri (15000L)
+#define DELAIMOTEUR       40000L  // Délai d'initialisation du moteur abri
 #define IMPMOT            500     // Durée d'impulsion moteur
 #define BAPPUILONG        3000    //Durée en ms pour un appui long sur le bouton
 #define TPSPARK           180000  // Temps de park du télescope
@@ -63,7 +64,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #include <Ethernet.h>
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
-IPAddress ip(192, 168, 0, 19);  // FIXME Mettre la bonne IP
+IPAddress ip(192, 168, 0, 16);  
 IPAddress myDns(192, 168, 0, 254);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
@@ -236,7 +237,7 @@ void setup() {
   pinMode(BARU, INPUT_PULLUP);  // Bouton d'arret d'urgence
   pinMode(BLUMI, INPUT_PULLUP); // Bouton éclairage intérieur
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
-  pinMode(PARK, INPUT_PULLUP);  // TODO Mettre à INPUT
+  pinMode(PARK, INPUT);         // TODO Mettre à INPUT
   pinMode(PLUIE,INPUT_PULLUP);  // Capteur de pluie
   // Abri fermé: moteur abri OFF, sinon ON
   if (!PortesOuvert && AbriFerme) {
@@ -278,7 +279,7 @@ bool deplaceAbri() {
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
   if (!PortesOuvert || !telPark() || DEPL) 
   {
-    sendMsg("Dep cond");
+    sendMsg("Dep con2");
     return false;
   }
   bool avant=AbriFerme; // Etat de l'abri avant déplacement
@@ -323,7 +324,7 @@ bool ouvreAbri() {
 	// Ouvre l'abri
   // Conditions: Pas de déplacement, pas de lock, télescope parqué
   if (DEPL || LOCK || !telPark()) {
-    sendMsg("Dep cond");
+    sendMsg("Dep con1");
     return false; 			// Abri en cours de déplacement ou locké ou télescope non parqué
   }
   if (AbriOuvert) return true;  	// Abri déjà ouvert
@@ -337,7 +338,6 @@ bool ouvreAbri() {
   else {
 	  if (ouvrePortes()) {
 		  if (!BappuiLong) {
-        DEPL=true;                  // bloque les nouvelles commandes le temps que MotAbriOK=true
 			  while (!MotAbriOk) pool(); 	// Attend que le moteur soit initialisé
 			  if (deplaceAbri() && AbriOuvert) {
           TelOn;                    // Mise en marche du télescope
@@ -351,9 +351,12 @@ bool ouvreAbri() {
 			  return false;
 		  }
 	  }
-    sendMsg("Err O por");
-	  return false;
+    else {
+      sendMsg("Err O por");
+	    return false;
+    }
   }
+  return true;
 }
 
 bool fermeAbri() {
@@ -516,14 +519,12 @@ void readBoutons() {
 	  // Touche en mode secondaire
 	  if (Brouge) {
 		  // Déplacement de l'abri inconditionnel 
-		  // TODO à terminer
       REMOTE=false;
 		  deplaceAbriInsecure();
 	  }
 	  if (Bvert) {
 		  // Fermeture des portes inconditionnel
 		  // /!\ Fonctionnement sans tests.
-		  // TODO à terminer
       REMOTE=false;
 		  fermePortesInsecure();
 	  }
@@ -550,14 +551,15 @@ void pool() {
   gereLeds();
   // Sécurité météo
   meteo();
+  // Console de debug
+  clientD = serverD.available();
 }
 
 void startMot() {
 	// Mise en marche du moteur de l'abri
 	sendMsg("Start M");
 	MotOn;
-  // FIXME timer.setTimeout(DELAIMOTEUR, initMotOk);
-  timer.setTimeout(3000, initMotOk);
+  timer.setTimeout(DELAIMOTEUR, initMotOk);
 }
 
 void stopMot() {
@@ -927,18 +929,19 @@ void readData()
                 }
             }
             // Prepare for the Lock function
-            else if (strcmp(target, "LOCK") == 0)			// TODO Lock de l'abri
+            else if (strcmp(target, "LOCK") == 0)			// Lock de l'abri
             {
-       				LOCK=(value=="1");
+       				LOCK=(value=="ON");
+               sendMsg(value);
       				EEPROM.put(0, LOCK);
     	  			// Sauvegarde en EEprom
       				sendAck(value);
             }
 
             // Prepare for the Auxiliary function
-            else if (strcmp(target, "AUXSET") == 0)			// TODO Bascule de la sorite auxiliaire
+            else if (strcmp(target, "AUXSET") == 0)			// Bascule de la sorite auxiliaire
             {
-              AUX=(value=="1");
+              AUX=(value=="ON");
               digitalWrite(ALIMAUX,AUX ? RON: ROFF);
       				EEPROM.put(0, AUX);
     	  			// Sauvegarde en EEprom

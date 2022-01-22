@@ -39,5 +39,6 @@ Commandes (test):
     (:SET:DEBUG:OFF)
     (:SET:DEBUG:ON)
     (:CON: : )
+    (:GET:LOCKED: )
 
 
