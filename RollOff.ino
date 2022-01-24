@@ -72,10 +72,11 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define Po2 25       // Capteur porte 2 ouverte
 #define PARK	A5   // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
 // Boutons
-#define BCLEF   A12    // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
-#define BNOIR  	A7 	// Bouton noir	
-#define BLUMT   A11    // Bouton d'éclairage de la table (rouge)  Interrupteur double
-#define BLUMI   A10    // Bouton d'éclairage de l'abri   (rouge)
+#define BCLEF   A12     // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
+#define BNOIR  	A7 	    // Bouton noir	
+#define BVERT   34      // Bouton vert
+#define BLUMT   A11     // Bouton d'éclairage de la table (rouge)  Interrupteur double
+#define BLUMI   A10     // Bouton d'éclairage de l'abri   (rouge)
 
 //---------- RollOffIno ----------
 //  Maximum length of messages = 63                                               *|
@@ -179,10 +180,9 @@ void setup() {
   pinMode(PARK, INPUT);         // TODO Mettre à INPUT
   pinMode(PLUIE,INPUT_PULLUP);  // Capteur de pluie
   // Abri fermé: moteur abri OFF, sinon ON
-  if (PortesOuvert && AbriOuvert) {
+  if ((AbriFerme && PortesOuvert) || AbriOuvert) {
 	  MotOn;
 	}
-  MotOn;
 
   // Etat initial des boutons d'éclairage
   BLUMIO=!digitalRead(BLUMI);
@@ -214,7 +214,11 @@ bool deplaceAbri() {
   attend(DELAIABRI);
   // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
-  if (AbriOuvert || AbriFerme) return true;; // Attente des capteurs
+  for (int i=0;i<10;i++) {
+    if (AbriOuvert || AbriFerme) return true; // Attente des capteurs
+    // Délai supplémentaire
+    attend(1000);
+   }
   return false;
 }
 
@@ -224,6 +228,7 @@ bool ouvreAbri() {
   if (AbriOuvert) return true;  	// Abri déjà ouvert
   // Gestion appui long (clef et bouton vert)
   BUSY=true;  // On ne prend pas de nouvelles commandes
+  MotOn;      // Mise en marche du moteur de l'abri
   if (ouvrePortes()) {
 	  if (!BappuiLong) {
 		  if (deplaceAbri() && AbriOuvert) {
@@ -274,9 +279,13 @@ bool ouvrePortes() {
     attend(INTERVALLEPORTES);
 		OuvreP2;
     attend(DELAIPORTES);
-    if (!PortesOuvert) return false;
+    for (int i=0;i<10;i++) {
+      if (PortesOuvert) return true;
+      // Délai supplémentaire   
+      attend(1000);
+    }
   }
-    return true;
+    return false;
 }
 
 bool fermePortes() {
