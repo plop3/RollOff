@@ -273,6 +273,7 @@ bool ouvrePortes() {
     // Portes ouvertes
     OuvreP1;
     OuvreP2;
+    return true;
   }
   else {
     OuvreP1;
