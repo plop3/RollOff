@@ -51,6 +51,7 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 //----------Sorties ----------
 #define CMDMOT  A1  	// (R1) Ouverture/fermeture abri Commande moteur de porte de garage
 #define ALIMMOT A2  	// (R2) Alimentation 220V moteur abri
+#define ALIM12V A3    // (R2) Alimentation 12V abri
 #define ALIMTEL A4    // Alimentation du télescope (relais externe)
 #define PLUIE   A6    // Capteur de pluie
 #define P11     3   	// (R5) LM298 1 porte 1
@@ -103,6 +104,8 @@ const char* VERSION_ID = "V1.2-0";
 #define Porte2Ouvert  (!digitalRead(Po2))
 #define AbriFerme     (!digitalRead(AF))
 #define AbriOuvert    (!digitalRead(AO))
+#define Stop12V       digitalWrite(ALIM12V, LOW)
+#define Start12V      digitalWrite(ALIM12V, HIGH)
 #define CmdMotOff     digitalWrite(CMDMOT, ROFF)
 #define CmdMotOn      digitalWrite(CMDMOT, RON)
 #define MotOn 	  	  digitalWrite(ALIMMOT, RON)
@@ -151,9 +154,13 @@ void setup() {
   barre(1, 0);
   barre(2, 0);
 
+  // Délai d'initialistion de la carte relais
+  delay(1000);
+  
   // Initialisation des relais
   CmdMotOff; pinMode(CMDMOT, OUTPUT); // Coupure de la commande du moteur de déplacement
   MotOff; pinMode(ALIMMOT,OUTPUT);
+  pinMode(ALIM12V, OUTPUT);Start12V;
   // Initialisation du LM298
   digitalWrite(P11, LOW); pinMode(P11, OUTPUT);
   digitalWrite(P12, LOW); pinMode(P12, OUTPUT);
@@ -175,6 +182,7 @@ void setup() {
   if (PortesOuvert && AbriOuvert) {
 	  MotOn;
 	}
+  MotOn;
 
   // Etat initial des boutons d'éclairage
   BLUMIO=!digitalRead(BLUMI);
@@ -204,7 +212,7 @@ bool deplaceAbri() {
   delay(IMPMOT);
   CmdMotOff;
   attend(DELAIABRI);
-  // Attand le positionnement de l'abri ou l'annulation du déplacement
+  // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
   if (AbriOuvert || AbriFerme) return true;; // Attente des capteurs
   return false;
@@ -273,7 +281,7 @@ bool ouvrePortes() {
 
 bool fermePortes() {
 	// Ferme les portes
-  if (!AbriFerme || !AbriOuvert) {
+  if (!AbriFerme) {
     return false;
   }
   FermeP2;
@@ -590,4 +598,3 @@ bool isStopAllowed()
     return true;
   }
 }
-
