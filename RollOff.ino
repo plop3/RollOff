@@ -164,6 +164,10 @@ void setup() {
 
   delay(1000);                // Attente d'initialisation du matériel
 
+  // LEDs shield
+  pinMode(LEDV, OUTPUT);
+  pinMode(LEDB,OUTPUT);
+  
   // LEDs APA106
   pixels.begin();
   pixels.clear();
@@ -229,6 +233,7 @@ void loop() {
   readBoutons();                // Lecture des boutons
   readARU();                    // Test du bouton ARU
   eclairages();                 // Gestion des éclairages
+  gereLeds();                   // LEDs du shield
   if (cmd) traiteCommande(cmd); // Traitement de la commande recue
   if (MoteurStatus) survDepl(); // Surveillance déplacement intempestif de l'abri
   if (AbriOuvert || PortesOuvert) meteo();  // Sécurité météo
@@ -432,6 +437,8 @@ void pool() {
   readARU();
   // Gestion des éclairages
   eclairages();
+  // LEDs shield
+  gereLeds();
 }
 
 void stopAbri() {
@@ -566,6 +573,13 @@ void lockAbri() {
 void sendMsg(char *message) {
   // Messages de debug (USB, Telnet, Ecran Oled)
   if (DEBUG) Serial.println(message);
+}
+
+void gereLeds() {
+  // Gestion des LEDs du shield
+  // LED verte: télescope parqué
+  digitalWrite(LEDV, Park);
+  // LED bleu: A DEFINIR
 }
 
 //---------- Fonctions Timer ----------
