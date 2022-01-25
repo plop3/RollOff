@@ -23,6 +23,7 @@
 #define IMPMOT            500     // Durée d'impulsion moteur
 #define BAPPUILONG        3000    //Durée en ms pour un appui long sur le bouton
 #define TPSPARK           180000  // Temps de park du télescope
+#define TPSARRET          600000L // Temps avant l'arret de l'alimentation 12V
 
 /*****************/
 /* PERIPHERIQUES */
@@ -53,7 +54,6 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define ALIMMOT A2  	// (R2) Alimentation 220V moteur abri
 #define ALIM12V A3    // (R2) Alimentation 12V abri
 #define ALIMTEL A4    // Alimentation du télescope (relais externe)
-#define PLUIE   A6    // Capteur de pluie
 #define P11     3   	// (R5) LM298 1 porte 1
 #define P12     5   	// (R6) LM298 2 porte 1
 #define P21     6   	// (R7) LM293 3 porte 2
@@ -66,15 +66,18 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 
 //---------- Entrées ----------
 // Capteurs
-#define AO  49       // Capteur abri ouvert
-#define AF  48       // Capteur abri fermé
-#define Po1 24       // Capteur porte 1 ouverte
-#define Po2 25       // Capteur porte 2 ouverte
-#define PARK	A5   // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
+#define AO      49      // Capteur abri ouvert
+#define AF      48      // Capteur abri fermé
+#define Po1     24      // Capteur porte 1 ouverte
+#define Po2     25      // Capteur porte 2 ouverte
+#define PARK	  A5      // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
+#define PLUIE   A6      // Capteur de pluie
 // Boutons
 #define BCLEF   A12     // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
 #define BNOIR  	A7 	    // Bouton noir	
 #define BVERT   34      // Bouton vert
+#define BROUGE  46      // Bouton rouge
+#define BARU    22      // Bouton d'arret d'urgence
 #define BLUMT   A11     // Bouton d'éclairage de la table (rouge)  Interrupteur double
 #define BLUMI   A10     // Bouton d'éclairage de l'abri   (rouge)
 
@@ -100,36 +103,42 @@ const char* VERSION_ID = "V1.2-0";
 /**********/
 /* MACROS */
 /**********/
-#define PortesOuvert  (!digitalRead(Po1) && !digitalRead(Po2)) // && Alim12VStatus)
-#define Porte1Ouvert  (!digitalRead(Po1))
-#define Porte2Ouvert  (!digitalRead(Po2))
-#define AbriFerme     (!digitalRead(AF))
-#define AbriOuvert    (!digitalRead(AO))
-#define Stop12V       digitalWrite(ALIM12V, LOW)
-#define Start12V      digitalWrite(ALIM12V, HIGH)
+#define PortesOuvert  (!dRead(Po1) && !dRead(Po2)) // && Alim12VStatus)
+#define Porte1Ouvert  (!dRead(Po1))
+#define Porte2Ouvert  (!dRead(Po2))
+#define AbriFerme     (!dRead(AF))
+#define AbriOuvert    (!dRead(AO))
+#define Stop12V       digitalWrite(ALIM12V, RON)
+#define Start12V      digitalWrite(ALIM12V, ROFF)
+#define StopTel       digitalWrite(ALIMTEL, LOW)
+#define StartTel      digitalWrite(ALIMTEL, HIGH)
 #define CmdMotOff     digitalWrite(CMDMOT, ROFF)
 #define CmdMotOn      digitalWrite(CMDMOT, RON)
 #define MotOn 	  	  digitalWrite(ALIMMOT, RON)
 #define MotOff 	      digitalWrite(ALIMMOT, ROFF)
-#define TelOn          digitalWrite(ALIMTEL, RON)
-#define TelOff        digitalWrite(ALIMTEL, ROFF)
 #define OuvreP1       digitalWrite(P12,LOW);digitalWrite(P11,HIGH)
 #define OuvreP2       digitalWrite(P22,LOW);digitalWrite(P21,HIGH)
 #define FermeP1       digitalWrite(P11,LOW);digitalWrite(P12,HIGH)
 #define FermeP2       digitalWrite(P21,LOW);digitalWrite(P22,HIGH)
-#define Bclef         !digitalRead(BCLEF)
-#define Bnoir         !digitalRead(BNOIR)
-#define MoteurStatus  (digitalRead(ALIMMOT) == RON) // Alimentation du moteur abri
-#define Park 		  true //digitalRead(PARK) //TODO 
-#define Pluie     !digitalRead(A6)
+#define Bclef         !dRead(BCLEF)
+#define Bnoir         !dRead(BNOIR)
+#define Bvert         !dRead(BVERT)
+#define Brouge        !dRead(BROUGE)
+#define MoteurStatus  (dRead(ALIMMOT) == RON) // Alimentation du moteur abri
+#define Status12V     (dRead(ALIM12V) == RON) // Alimentation 12V
+#define Park 		      true //dRead(PARK) //TODO 
+#define Pluie         !dRead(A6)
+#define Baru          !dRead(BARU)
+
 
 /**********************/
 /* VARIABLES GLOBALES */
 /**********************/
-bool BLUMTO = !digitalRead(BLUMT);  // Dernier etat du bouton d'éclairage table
-bool BLUMIO = !digitalRead(BLUMI);  // Dernier etat du bouton d'éclairage intérieur
+int cmd = 0;                        // Commande a réaliser (0: pas de commande)
+bool BLUMTO;                        // Dernier etat du bouton d'éclairage table
+bool BLUMIO;                        // Dernier etat du bouton d'éclairage intérieur
 bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
-bool BUSY=false;                    // Une action est en cours, pas de nouvelle commande acceptée
+bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 
 //---------- RollOffIno ----------
 const int cLen = 15;
@@ -145,8 +154,10 @@ unsigned long timeMove = 0;
 /*********/
 void setup() {
   // Initialisation des ports série
-  Serial.begin(BAUDRATE);  		// Connexion à AstroPi (port Indi)
-  
+  Serial.begin(BAUDRATE);  		// Port Indi
+
+  delay(1000);                // Attente d'initialisation du matériel
+
   // LEDs APA106
   pixels.begin();
   pixels.clear();
@@ -154,14 +165,14 @@ void setup() {
   barre(0, 0); // Extinction des barres de LEDs
   barre(1, 0);
   barre(2, 0);
+  BLUMTO = !dRead(BLUMT);  // Dernier etat du bouton d'éclairage table
+  BLUMIO = !dRead(BLUMI);  // Dernier etat du bouton d'éclairage intérieur
 
-  // Délai d'initialistion de la carte relais
-  delay(1000);
-  
   // Initialisation des relais
-  CmdMotOff; pinMode(CMDMOT, OUTPUT); // Coupure de la commande du moteur de déplacement
-  MotOff; pinMode(ALIMMOT,OUTPUT);
-  pinMode(ALIM12V, OUTPUT);Start12V;
+  pinMode(CMDMOT, OUTPUT);CmdMotOff;  // Coupure de la commande du moteur de déplacement
+  MotOff; pinMode(ALIMMOT,OUTPUT);    // Coupure du moteur d'abri
+  Start12V;pinMode(ALIM12V, OUTPUT);  // Mise en marche de l'alimentation 12V
+
   // Initialisation du LM298
   digitalWrite(P11, LOW); pinMode(P11, OUTPUT);
   digitalWrite(P12, LOW); pinMode(P12, OUTPUT);
@@ -179,27 +190,56 @@ void setup() {
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
   pinMode(PARK, INPUT);         // TODO Mettre à INPUT
   pinMode(PLUIE,INPUT_PULLUP);  // Capteur de pluie
-  // Abri fermé: moteur abri OFF, sinon ON
-  if ((AbriFerme && PortesOuvert) || AbriOuvert) {
-	  MotOn;
-	}
+  
+  delay(1000);  // Attente d'initialisation des capteurs
+
+  // Arret d'urgence appuyé, on attend
+  while(Baru) {};
+  
+  // Portes fermées: moteur abri OFF, sinon ON
+  if (PortesOuvert) startMot();
+  // Abri ouvert, télescope alimenté
+  if (AbriOuvert) StartTel;
 
   // Etat initial des boutons d'éclairage
-  BLUMIO=!digitalRead(BLUMI);
-  BLUMTO=!digitalRead(BLUMT);
+  BLUMIO=!dRead(BLUMI);
+  BLUMTO=!dRead(BLUMT);
 }
 
 /*********************/
 /* BOUCLE PRINCIPALE */
 /*********************/
 void loop() {
-  readBoutons();  // Lecture des boutons
-  pool();         // fonctions périodiques
+  // Attente des commandes
+  cmd=0;                        // Initialisation des commandes
+  readIndi();                   // Lecture Indi (1: commandes actives)
+  readBoutons();                // Lecture des boutons
+  readARU();                    // Test du bouton ARU
+  eclairages();                 // Gestion des éclairages
+  if (cmd) traiteCommande(cmd); // Traitement de la commande recue
+  if (MoteurStatus) survDepl(); // Surveillance déplacement intempestif de l'abri
+  if (AbriOuvert || PortesOuvert) meteo();  // Sécurité météo
 }
 
 /*************/
 /* FONCTIONS */
 /*************/
+
+void traiteCommande(int commande) {
+  // Traitement des commandes
+  switch (commande){
+  case 1: // Ouvre abri
+    ouvreAbri();
+    break;
+  case 2: // Ferme abri
+    fermeAbri();
+    break;
+  case 3: // Arret de l'abri
+    stopAbri();
+    break;
+  }
+}
+
 bool deplaceAbri() {
   // Déplace l'abri
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
@@ -207,17 +247,19 @@ bool deplaceAbri() {
   {
     return false;
   }
+  if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri si besoin
   barre(0, 128);
+  while(!MotReady) attend(1000,1);
   CmdMotOn;
   delay(IMPMOT);
   CmdMotOff;
-  attend(DELAIABRI);
+  attend(DELAIABRI,1);
   // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
   for (int i=0;i<10;i++) {
     if (AbriOuvert || AbriFerme) return true; // Attente des capteurs
     // Délai supplémentaire
-    attend(1000);
+    attend(1000,1);
    }
   return false;
 }
@@ -227,43 +269,29 @@ bool ouvreAbri() {
   // Conditions: 
   if (AbriOuvert) return true;  	// Abri déjà ouvert
   // Gestion appui long (clef et bouton vert)
-  BUSY=true;  // On ne prend pas de nouvelles commandes
-  MotOn;      // Mise en marche du moteur de l'abri
+  if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri
   if (ouvrePortes()) {
 	  if (!BappuiLong) {
 		  if (deplaceAbri() && AbriOuvert) {
-        TelOn;                    // Mise en marche du télescope
-        BUSY=false;
+        StartTel;                    // Mise en marche du télescope
 		    return true;
 		  }
 	  }
-	  else {
-		  // Appui long: ouvre seulement les portes
-      BUSY=false;
-		  return false;
-	  }
+	  else return false;              // Appui long: ouvre seulement les portes
 	}
-  else {
-    // Portes non ouvertes
-    BUSY=false;
-	  return false;
-  }
-  BUSY=false;
+  else return false;                // Portes non ouvertes
   return true;
 }
 
 bool fermeAbri() {
-    // Ferme l'abri
+  // Ferme l'abri
   if (AbriFerme) return true; // Abri déjà fermé
   if (!PortesOuvert) return false;
-  BUSY=true;
   if (deplaceAbri() && AbriFerme) {
     if (fermePortes()) {
-      BUSY=false;
       return true;
     }
   }
-  BUSY=false;
   return false;
 }
 
@@ -277,13 +305,13 @@ bool ouvrePortes() {
   }
   else {
     OuvreP1;
-    attend(INTERVALLEPORTES);
+    attend(INTERVALLEPORTES,0);
 		OuvreP2;
-    attend(DELAIPORTES);
+    attend(DELAIPORTES,0);
     for (int i=0;i<10;i++) {
       if (PortesOuvert) return true;
       // Délai supplémentaire   
-      attend(1000);
+      attend(1000,0);
     }
   }
     return false;
@@ -295,21 +323,23 @@ bool fermePortes() {
     return false;
   }
   FermeP2;
-  attend(INTERVALLEPORTES);
+  attend(INTERVALLEPORTES,1);
   FermeP1;
-	attend(DELAIPORTES);
+	attend(DELAIPORTES,1);
   MotOff;
-  TelOff;
+  StopTel;
   return true;
 }
 
-void attend(unsigned long delai) 
-// Attend un délai déterminé ou une condition se sortie (passage à false pour sortir sans délai)
+void attend(unsigned long delai, bool secu) 
+// Attend un délai déterminé 
+// secu: true -> surveillance du park
 {
   unsigned long previousMillis = millis();
   unsigned long currentMillis;
   do {
     currentMillis = millis();
+    if (secu) survPark();
     pool();
   } while (currentMillis - previousMillis <= delai);
 }
@@ -318,20 +348,25 @@ void readBoutons() {
   // Lecture des boutons de l'abri
   // Déplacement en cours, on ne fait rien
   // Touches ou clef mode principal
-	if (Bclef || Bnoir) {
+	if (Bclef || Bvert) {
     BappuiLong=false;
     // Temporisation pour appui long
     timer.setTimeout(BAPPUILONG,appuiLong);
 	  // Déplacement de l'abri
 		if (!AbriOuvert) {
 			// Ouverture abri (abri non fermé)
-			ouvreAbri();
+			cmd=1;
 		}
 		// Fermeture abri
 		else if (AbriOuvert) {
-			fermeAbri();
+			cmd=2;
 		}
   }
+}
+
+void readARU() {
+  // Gestion du bouton d'arret d'urgence
+  if (Baru) stopAbri();
 }
 
 void pool() {
@@ -339,12 +374,10 @@ void pool() {
   timer.run();  
   // Fonctions périodiques
   readIndi();     // Lecture des commandes Indi
-	// Surveillance
-	surv();
+  // Gestion ARU
+  readARU();
 	// Gestion des éclairages
 	eclairages();
-  // Sécurité météo
-  meteo();
 }
 
 void stopAbri() {
@@ -361,12 +394,19 @@ void stopAbri() {
     pinMode(RESETMEGA, OUTPUT);
 }
 
-void surv() {
+void survDepl() {
+  // Surveillance du déplacement intempestif de l'abri
+  if (!AbriOuvert && !AbriFerme) stopAbri();
+}
+
+void survPark() {
+  // Surveillance du park télescope
+  if (!Park) stopAbri();
 }
 
 void eclairages() {
   // Gestion des écairages
-  bool Etat = digitalRead(BLUMI);
+  bool Etat = dRead(BLUMI);
   if (Etat != BLUMIO) {
     BLUMIO = Etat;
     if (Etat) {
@@ -377,7 +417,7 @@ void eclairages() {
     }
     delay(100); // Anti-rebonds
   }
-  Etat = !digitalRead(BLUMT);
+  Etat = !dRead(BLUMT);
   if (Etat != BLUMTO) {
     BLUMTO = Etat;
     if (Etat) {
@@ -409,7 +449,7 @@ bool parkTelescope() {
   do {
     tpsact = millis();
   } while ((tpsact - tpsdebut) < TPSPARK && Park);
-  attend(5000);  // Attente du park complet
+  attend(5000,0);  // Attente du park complet
     if (!Park) {
       return (false);
     }
@@ -423,14 +463,31 @@ bool meteo() {
   }
 }
 
+void startMot() {
+  // Alimente le moteur de l'abri
+  MotOn;
+  MotReady=false;
+  timer.setTimeout(DELAIMOTEUR,tpsInitMoteur);
+}
+
 //---------- Fonctions Timer ----------
 
 void appuiLong()
 {
-    if (Bclef || Bnoir)
-    {
-        BappuiLong = true;
-    }
+    if (Bclef || Bnoir) BappuiLong = true;
+}
+
+int dRead(int pin) {
+  // Lecture des entrées "anti-parasitées"
+  bool a=digitalRead(pin);
+  delay(20);
+  if (digitalRead(pin)==a) return a;
+  delay(20);
+  return digitalRead(pin);
+}
+
+void tpsInitMoteur() {
+  MotReady=true;
 }
 
 /************************/
@@ -489,14 +546,14 @@ void readData()
             {
                 sendAck(value);
                 timeMove = millis();
-                if (!BUSY) ouvreAbri();
+                cmd=1;
             }
             // Prepare to CLOSE
             else if (strcmp(target, "CLOSE") == 0)			// Fermeture de l'abri
             {
                 sendAck(value);
                 timeMove = millis();
-                if (!BUSY) fermeAbri();
+                cmd=2;
             }
             // Prepare to ABORT								// Arret de l'abri
             else if (strcmp(target, "ABORT") == 0)
@@ -508,7 +565,7 @@ void readData()
                 }
                 else
                 {
-					        stopAbri();
+					        cmd=3;
                   sendAck(value);
                 }
             }
