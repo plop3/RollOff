@@ -34,16 +34,18 @@ SimpleTimer timer;
 
 // LEDs neopixel
 #include <Adafruit_NeoPixel.h>
+
 #ifdef __AVR__
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
+
 #define LEDPIN 13
 #define NBLEDS 24  // Nombre total de LEDs (3 barrettes de 8 LEDs)
 Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 /*
-   0-7: Eclairage table
+   0-7: Eclairage extérieur
    8-15:Eclairage intérieur
-   16-23: Eclairage extérieur
+   16-23: Eclairage table
 */
 
 /**************/
@@ -62,7 +64,7 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define RESETMEGA	A13 // Reset de l'arduino
 #define LEDV    2     // LED verte du shield
 #define LEDB    9     // LED bleue du shield
-// APA106      13     // Définie plus haut
+// APA106      12     // Définie plus haut
 
 //---------- Entrées ----------
 // Capteurs
@@ -77,7 +79,7 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define BNOIR  	A7 	    // Bouton noir	
 #define BVERT   34      // Bouton vert
 #define BROUGE  46      // Bouton rouge
-#define BARU    22      // Bouton d'arret d'urgence
+#define BARU    23      // Bouton d'arret d'urgence
 #define BLUMT   A11     // Bouton d'éclairage de la table (rouge)  Interrupteur double
 #define BLUMI   A10     // Bouton d'éclairage de l'abri   (rouge)
 
@@ -103,7 +105,8 @@ const char* VERSION_ID = "V1.2-0";
 /**********/
 /* MACROS */
 /**********/
-#define PortesOuvert  (!dRead(Po1) && !dRead(Po2)) // && Alim12VStatus)
+#define PortesOuvert  (!dRead(Po1) && !dRead(Po2))
+#define PortesFerme   (dRead(Po1) && dRead(Po2)) 
 #define Porte1Ouvert  (!dRead(Po1))
 #define Porte2Ouvert  (!dRead(Po2))
 #define AbriFerme     (!dRead(AF))
@@ -126,7 +129,7 @@ const char* VERSION_ID = "V1.2-0";
 #define Brouge        !dRead(BROUGE)
 #define MoteurStatus  (dRead(ALIMMOT) == RON) // Alimentation du moteur abri
 #define Status12V     (dRead(ALIM12V) == RON) // Alimentation 12V
-#define Park 		      true //dRead(PARK) //TODO 
+#define Park 	      dRead(PARK) 	      // Télescope parqué 
 #define Pluie         !dRead(A6)
 #define Baru          !dRead(BARU)
 
@@ -186,6 +189,9 @@ void setup() {
   pinMode(Po2, INPUT_PULLUP);   // Capteur porte ouverte 2 
   pinMode(BCLEF, INPUT_PULLUP); // Bouton à clef
   pinMode(BNOIR, INPUT_PULLUP); // Bouton noir
+  pinMode(BARU, INPUT_PULLUP);  // Bouton ARU
+  pinMode(BVERT, INPUT_PULLUP); // Bouton vert
+  pinMode(BROUGE, INPUT_PULLUP); // Bouton rouge
   pinMode(BLUMI, INPUT_PULLUP); // Bouton éclairage intérieur
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
   pinMode(PARK, INPUT);         // TODO Mettre à INPUT
@@ -195,7 +201,7 @@ void setup() {
 
   // Arret d'urgence appuyé, on attend
   while(Baru) {};
-  
+ 
   // Portes fermées: moteur abri OFF, sinon ON
   if (PortesOuvert) startMot();
   // Abri ouvert, télescope alimenté
@@ -210,6 +216,7 @@ void setup() {
 /* BOUCLE PRINCIPALE */
 /*********************/
 void loop() {
+
   // Attente des commandes
   cmd=0;                        // Initialisation des commandes
   readIndi();                   // Lecture Indi (1: commandes actives)
@@ -243,7 +250,7 @@ void traiteCommande(int commande) {
 bool deplaceAbri() {
   // Déplace l'abri
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
-  if (!PortesOuvert || !Park) 
+  if (PortesFerme || !Park) 
   {
     return false;
   }
@@ -286,7 +293,7 @@ bool ouvreAbri() {
 bool fermeAbri() {
   // Ferme l'abri
   if (AbriFerme) return true; // Abri déjà fermé
-  if (!PortesOuvert) return false;
+  if (PortesFerme) return false;
   if (deplaceAbri() && AbriFerme) {
     if (fermePortes()) {
       return true;
@@ -376,27 +383,46 @@ void pool() {
   readIndi();     // Lecture des commandes Indi
   // Gestion ARU
   readARU();
-	// Gestion des éclairages
-	eclairages();
+  // Gestion des éclairages
+  eclairages();
 }
 
 void stopAbri() {
-	// Arret de l'abri (pas en arret d'urgence)
-		// Arret du moteur abri
-		MotOff;
-		// Arret des portes
-		digitalWrite(P11, LOW);
-		digitalWrite(P12, LOW);
-		digitalWrite(P21, LOW);
-		digitalWrite(P22, LOW);
-		// Plus d'action en cours
+  // Arret de l'abri (pas en arret d'urgence)
+  // Arret du moteur abri
+  MotOff;
+  // Arret des portes
+  digitalWrite(P11, LOW);
+  digitalWrite(P12, LOW);
+  digitalWrite(P21, LOW);
+  digitalWrite(P22, LOW);
+  // Plus d'action en cours
+  if (!Baru) {
+    while(!Baru) {
+      barre(0,128);
+      barre(1,128);
+      delay(500);
+      barre(0,0);
+      barre(1,0);
+      delay(500);
+    }	
+  }
+  delay(500);
+  while(Baru) {
+    barre(0,128);
+    barre(1,128);
+    delay(500);
+    barre(0,0);
+    barre(1,0);
+    delay(500);
+  }
     // Reset de l'arduino
     pinMode(RESETMEGA, OUTPUT);
 }
 
 void survDepl() {
   // Surveillance du déplacement intempestif de l'abri
-  if (!AbriOuvert && !AbriFerme) stopAbri();
+  if (!AbriOuvert && !AbriFerme && (!PortesOuvert || !Park)) stopAbri();
 }
 
 void survPark() {
@@ -650,7 +676,7 @@ bool isStopAllowed()
 {
   unsigned long timeNow = millis();
    // If the roof is either fully opened or fully closed, ignore the request.
-  if ((AbriOuvert && PortesOuvert) || (AbriFerme && !PortesOuvert)) 
+  if ((AbriOuvert && PortesOuvert) || (AbriFerme && PortesFerme)) 
   {
     return false;
   }
