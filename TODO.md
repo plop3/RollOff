@@ -1,9 +1,9 @@
 TODO
 ====
-- Ajout afficheur Oled
+- Ajout LEDs shield
+- Ajout connexion réseau / Indi
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
-- Ajout connexion réseau / Indi
 - Ajout MQTT Infos sur l'abri, fermeture de l'abri...)
 - Ajout Lock (Indi, MQTT)
 
@@ -17,6 +17,7 @@ OPTIONS:
 --------
 - Ajout Aux
 - Console Telnet de debug
+- Ajout afficheur Oled
 
 NOTES
 =====

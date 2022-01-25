@@ -13,6 +13,7 @@
 /**************/
 /* PARAMETRES */
 /**************/
+#define DEBUG             false   // Mode debug série
 #define BAUDRATE 	        9600    // Vitesse du port série
 #define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
@@ -152,6 +153,7 @@ char command[cLen+1];
 char value[vLen+1];
 char target[tLen+1];
 unsigned long timeMove = 0;
+int TypeCon=0;  // 0: USB, 1: Telnet 9999, 2: Telnet 9998
 
 /*********/
 /* SETUP */
@@ -549,9 +551,10 @@ void abriOff() {
   // Mise en veille de l'abri
   MotOff;
   StopTel;
+  // Eteint les éclairages
   barre(0,0);
   barre(1,0);
- barre(2,0);
+  barre(2,0);
 }
 
 void lockAbri() {
@@ -560,8 +563,9 @@ void lockAbri() {
   // TODO
 }
 
-void sendMsg(String message) {
+void sendMsg(char *message) {
   // Messages de debug (USB, Telnet, Ecran Oled)
+  if (DEBUG) Serial.println(message);
 }
 
 //---------- Fonctions Timer ----------
