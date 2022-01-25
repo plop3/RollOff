@@ -9,6 +9,7 @@
 /***********/
 /* MODULES */
 /***********/
+#include "infos.h";
 
 /**************/
 /* PARAMETRES */
@@ -63,8 +64,17 @@ EthernetServer server(9999);
 EthernetClient client;      // Client Telnet 9999
 //EthernetClient clientO;     // Client OnStep 
 //IPAddress onstep(192, 168, 0, 15);
-
 boolean alreadyConnected = false; 
+
+// MQTT
+void callbackMQTT(char* topic, byte* payload, unsigned int length) {
+  // handle message arrived
+}
+
+#include <PubSubClient.h>
+IPAddress broker(192, 168, 0, 4);
+EthernetClient mqttclient;
+PubSubClient mqtt(broker, 1883, callbackMQTT, mqttclient);
 
 /**************/
 /* CONSTANTES */
@@ -161,6 +171,7 @@ bool BLUMIO;                        // Dernier etat du bouton d'éclairage inté
 bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 bool Remote = true;                 // Commande distante (+ de sécurité)
+bool EtatAbri=false;                      // Dernier état de l'abri (fermé: 0 ouvert:1)
 
 //---------- RollOffIno ----------
 const int cLen = 15;
@@ -240,6 +251,8 @@ void setup() {
     // Ethernet
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
 
+  // MQTT
+  connectMQTT();
   sendMsg("Fin init");
 }
 
@@ -251,14 +264,14 @@ void loop() {
   // Attente des commandes
   cmd=0;                        // Initialisation des commandes
   if (AbriOuvert && AbriFerme) stopAbri();  // Problème de capteurs
-  readIndi();                   // Lecture Indi (1: commandes actives)
   readBoutons();                // Lecture des boutons
-  readARU();                    // Test du bouton ARU
-  eclairages();                 // Gestion des éclairages
-  gereLeds();                   // LEDs du shield
+  
+  pool();
+  
   if (cmd) traiteCommande(cmd); // Traitement de la commande recue
   if (MoteurStatus) survDepl(); // Surveillance déplacement intempestif de l'abri
   if (AbriOuvert || PortesOuvert) meteo();  // Sécurité météo
+  if ((AbriOuvert && !EtatAbri)) {}
 }
 
 /*************/
@@ -304,7 +317,10 @@ bool deplaceAbri() {
   // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
   for (int i=0;i<10;i++) {
-    if (AbriOuvert || AbriFerme) return true; // Attente des capteurs
+    if (AbriOuvert || AbriFerme) {
+        mqtt.publish("esp-abri/status",AbriFerme ? "OFF": "ON");      
+        return true; // Attente des capteurs
+    }
     // Délai supplémentaire
     attend(1000,1);
    }
@@ -461,6 +477,9 @@ void pool() {
   eclairages();
   // LEDs shield
   gereLeds();
+  // Lecture MQTT
+    if (!mqtt.connected()) connectMQTT();
+  mqtt.loop();                  
 }
 
 void stopAbri() {
@@ -604,6 +623,12 @@ void gereLeds() {
   // LED bleu: A DEFINIR
 }
 
+void connectMQTT() {
+  if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
+    mqtt.publish("esp-abri/status",AbriFerme ? "OFF": "ON");
+    mqtt.subscribe("esp-abri/set");
+  }
+}
 //---------- Fonctions Timer ----------
 
 void appuiLong()

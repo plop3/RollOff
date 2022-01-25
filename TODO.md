@@ -1,12 +1,13 @@
 TODO
 ====
-- Ajout connexion réseau / Indi
-- Ajout MQTT Infos sur l'abri, fermeture de l'abri...)
+- Ajout MQTT fermeture de  l'abri depuis hass
+- Ajout Lock (Indi, MQTT)
 - Park du télescope par réseau
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
-
-- Ajout Lock (Indi, MQTT)
+- Ajout de capteurs "portes fermées"
+- Ajout de barrières IR/US
+- Ajout d'un détecteur PIR
 
 TESTER
 ======
@@ -16,7 +17,7 @@ TESTER
 
 OPTIONS:
 --------
-- Ajout Aux
+- Ajout Aux (12V télescope ?)
 - Console Telnet de debug
 - Ajout afficheur Oled
 
