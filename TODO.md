@@ -1,10 +1,11 @@
 TODO
 ====
-- Ajout LEDs shield
 - Ajout connexion réseau / Indi
+- Ajout MQTT Infos sur l'abri, fermeture de l'abri...)
+- Park du télescope par réseau
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
-- Ajout MQTT Infos sur l'abri, fermeture de l'abri...)
+
 - Ajout Lock (Indi, MQTT)
 
 TESTER

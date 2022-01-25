@@ -49,6 +49,23 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
    16-23: Eclairage table
 */
 
+// Serveurs Telnet
+#include <SPI.h>
+#include <Ethernet.h>
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
+IPAddress ip(192, 168, 0, 16);  
+IPAddress myDns(192, 168, 0, 254);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
+
+EthernetServer server(9999);
+EthernetClient client;      // Client Telnet 9999
+//EthernetClient clientO;     // Client OnStep 
+//IPAddress onstep(192, 168, 0, 15);
+
+boolean alreadyConnected = false; 
+
 /**************/
 /* CONSTANTES */
 /**************/
@@ -167,7 +184,7 @@ void setup() {
   // LEDs shield
   pinMode(LEDV, OUTPUT);
   pinMode(LEDB,OUTPUT);
-  
+
   // LEDs APA106
   pixels.begin();
   pixels.clear();
@@ -205,6 +222,7 @@ void setup() {
   pinMode(PLUIE,INPUT_PULLUP);  // Capteur de pluie
   
   sendMsg("Deb init");
+
   delay(1000);  // Attente d'initialisation des capteurs
 
   // Arret d'urgence appuyé, on attend
@@ -218,6 +236,10 @@ void setup() {
   // Etat initial des boutons d'éclairage
   BLUMIO=!dRead(BLUMI);
   BLUMTO=!dRead(BLUMT);
+
+    // Ethernet
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
+
   sendMsg("Fin init");
 }
 
@@ -607,25 +629,40 @@ void tpsInitMoteur() {
 /************************/
 
 void sendData(char* buffer) {
-	// Envoi les données sur le port USB
- 	Serial.println(buffer);
-  Serial.flush();
+  	// Envoi les données sur le port USB
+  switch (TypeCon) {
+    case 0:
+    	Serial.println(buffer);
+	    Serial.flush();
+      break;
+    case 1:
+      client.println(buffer);
+      client.flush();
+      break;
+  }
 }
 
 void readIndi()
 {   
   if (Serial.available())
   {
+    TypeCon=0;
     readData();
   }
+  client = server.available();
+  if (client.available()>0 ) {
+    TypeCon=1;
+    readData();
+  } 
 }
 
 bool parseCommand() // (command:target:value)
 {
   char inpBuf[MAX_INPUT+1];
   memset(inpBuf, 0, sizeof(inpBuf));
-	Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
-  strcpy(command, strtok(inpBuf, "(:"));
+  if (TypeCon==0) Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
+  if (TypeCon==1) client.readBytesUntil(')',inpBuf,MAX_INPUT);
+	strcpy(command, strtok(inpBuf, "(:"));
   strcpy(target, strtok(NULL, ":"));
   strcpy(value, strtok(NULL, ")"));
   if ((strlen(command) > 2) && strlen(target) && strlen(value))
