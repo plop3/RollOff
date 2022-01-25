@@ -1,18 +1,23 @@
 TODO
 ====
-- Surveillance de la position de l'abri ouvert
-- Surveillance du park pendant la fermeture des portes
-- Ajout ouverture/fermeture porte 1 seule (abri fermé)
-- Bouton à l'intérieur (clone de bclef)
-- Gestion de l'alimentation du télescope
-- Gestion ARU
+- Ajout afficheur Oled
+- Ajout clignotement lent pendant déplacement abri
+- Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
+- Ajout connexion réseau / Indi
+- Ajout MQTT Infos sur l'abri, fermeture de l'abri...)
+- Ajout Lock (Indi, MQTT)
 
-IndiDuino:
-----------
-- Ajout Lock
+TESTER
+======
+- Appui long (ouverture porte 1)
+- Gestion de l'alimentation du télescope
+- Abri ouvert et fermé 
+
+OPTIONS:
+--------
 - Ajout Aux
+- Console Telnet de debug
 
 NOTES
 =====
-- Abri ouvert et fermé -> Erreur
 - Abri ni ouvert, ni fermé -> considéré comme ouvert pour les commandes

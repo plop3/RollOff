@@ -19,7 +19,7 @@
 #define DELAIPORTES       40000L  // Durée d'ouverture/fermeture des portes (40000L)
 #define INTERVALLEPORTES  12000   // Intervalle entre la fermeture de la porte 1 et de la porte 2
 #define DELAIABRI         22000L  // Durée de déplacement de l'abri (15000L)
-#define DELAIMOTEUR       40000L  // Délai d'initialisation du moteur abri
+#define DELAIMOTEUR       50000L  // Délai d'initialisation du moteur abri
 #define IMPMOT            500     // Durée d'impulsion moteur
 #define BAPPUILONG        3000    //Durée en ms pour un appui long sur le bouton
 #define TPSPARK           180000  // Temps de park du télescope
@@ -43,8 +43,8 @@ SimpleTimer timer;
 #define NBLEDS 24  // Nombre total de LEDs (3 barrettes de 8 LEDs)
 Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 /*
-   0-7: Eclairage extérieur
-   8-15:Eclairage intérieur
+   0-7:   Eclairage extérieur
+   8-15:  Eclairage intérieur
    16-23: Eclairage table
 */
 
@@ -142,6 +142,7 @@ bool BLUMTO;                        // Dernier etat du bouton d'éclairage table
 bool BLUMIO;                        // Dernier etat du bouton d'éclairage intérieur
 bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
+bool Remote = true;                 // Commande distante (+ de sécurité)
 
 //---------- RollOffIno ----------
 const int cLen = 15;
@@ -197,6 +198,7 @@ void setup() {
   pinMode(PARK, INPUT);         // TODO Mettre à INPUT
   pinMode(PLUIE,INPUT_PULLUP);  // Capteur de pluie
   
+  sendMsg("Deb init");
   delay(1000);  // Attente d'initialisation des capteurs
 
   // Arret d'urgence appuyé, on attend
@@ -210,6 +212,7 @@ void setup() {
   // Etat initial des boutons d'éclairage
   BLUMIO=!dRead(BLUMI);
   BLUMTO=!dRead(BLUMT);
+  sendMsg("Fin init");
 }
 
 /*********************/
@@ -219,6 +222,7 @@ void loop() {
 
   // Attente des commandes
   cmd=0;                        // Initialisation des commandes
+  if (AbriOuvert && AbriFerme) stopAbri();  // Problème de capteurs
   readIndi();                   // Lecture Indi (1: commandes actives)
   readBoutons();                // Lecture des boutons
   readARU();                    // Test du bouton ARU
@@ -244,12 +248,19 @@ void traiteCommande(int commande) {
   case 3: // Arret de l'abri
     stopAbri();
     break;
+  case 4:
+    lockAbri();
+    break;
+  case 5:
+    bougePorte1();
+    break;
   }
 }
 
 bool deplaceAbri() {
   // Déplace l'abri
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
+  sendMsg("Dep abri");
   if (PortesFerme || !Park) 
   {
     return false;
@@ -275,7 +286,12 @@ bool ouvreAbri() {
 	// Ouvre l'abri
   // Conditions: 
   if (AbriOuvert) return true;  	// Abri déjà ouvert
+  sendMsg("Ouv abri");
   // Gestion appui long (clef et bouton vert)
+  if (PortesOuvert && BappuiLong) {
+    fermePortes();
+    return false;
+  }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri
   if (ouvrePortes()) {
 	  if (!BappuiLong) {
@@ -292,6 +308,7 @@ bool ouvreAbri() {
 
 bool fermeAbri() {
   // Ferme l'abri
+  sendMsg("F abri");
   if (AbriFerme) return true; // Abri déjà fermé
   if (PortesFerme) return false;
   if (deplaceAbri() && AbriFerme) {
@@ -304,7 +321,8 @@ bool fermeAbri() {
 
 bool ouvrePortes() {
 	// Ouvre les portes
-  if (PortesOuvert) {
+  sendMsg("O portes");
+  if (PortesOuvert && !Remote) {
     // Portes ouvertes
     OuvreP1;
     OuvreP2;
@@ -314,11 +332,20 @@ bool ouvrePortes() {
     OuvreP1;
     attend(INTERVALLEPORTES,0);
 		OuvreP2;
-    attend(DELAIPORTES,0);
-    for (int i=0;i<10;i++) {
-      if (PortesOuvert) return true;
-      // Délai supplémentaire   
-      attend(1000,0);
+    if (Remote) {
+      attend(DELAIPORTES,0);
+      for (int i=0;i<10;i++) {
+        if (PortesOuvert) return true;
+        // Délai supplémentaire   
+        attend(1000,0);
+      }
+    }
+    else {
+      for (int i=0;i<DELAIPORTES+10;i++) {
+        if (PortesOuvert) return true;
+        // Délai supplémentaire   
+        attend(1000,0);
+      }
     }
   }
     return false;
@@ -326,6 +353,7 @@ bool ouvrePortes() {
 
 bool fermePortes() {
 	// Ferme les portes
+  sendMsg("F portes");
   if (!AbriFerme) {
     return false;
   }
@@ -333,9 +361,18 @@ bool fermePortes() {
   attend(INTERVALLEPORTES,1);
   FermeP1;
 	attend(DELAIPORTES,1);
-  MotOff;
-  StopTel;
+  abriOff();
   return true;
+}
+
+void bougePorte1() {
+  // Ouvre/ferme la porte 1
+  if (Porte1Ouvert) {
+    FermeP1;
+  }
+  else {
+    OuvreP1;
+  }
 }
 
 void attend(unsigned long delai, bool secu) 
@@ -362,13 +399,21 @@ void readBoutons() {
 	  // Déplacement de l'abri
 		if (!AbriOuvert) {
 			// Ouverture abri (abri non fermé)
-			cmd=1;
+			Remote=false;
+      cmd=1;
 		}
 		// Fermeture abri
 		else if (AbriOuvert) {
+      Remote=false;
 			cmd=2;
 		}
   }
+  if (Brouge) {
+    // Ouverture/fermeture de la porte1
+    Remote=false;
+    cmd=5;
+  }
+  while(Bclef || Bvert || Brouge) {} // Attente de relachement des boutons
 }
 
 void readARU() {
@@ -389,6 +434,7 @@ void pool() {
 
 void stopAbri() {
   // Arret de l'abri (pas en arret d'urgence)
+  sendMsg("ARU");
   // Arret du moteur abri
   MotOff;
   // Arret des portes
@@ -464,6 +510,7 @@ void barre(byte barreau, byte valeur) {
 }
 
 bool parkTelescope() {
+  sendMsg("Park T");
   // Park du télescope
   // Park du télescope par Pin
   digitalWrite(SPARK, HIGH);
@@ -490,17 +537,38 @@ bool meteo() {
 }
 
 void startMot() {
+  sendMsg("Mot On");
   // Alimente le moteur de l'abri
   MotOn;
   MotReady=false;
   timer.setTimeout(DELAIMOTEUR,tpsInitMoteur);
 }
 
+void abriOff() {
+  sendMsg("Abri Off");
+  // Mise en veille de l'abri
+  MotOff;
+  StopTel;
+  barre(0,0);
+  barre(1,0);
+ barre(2,0);
+}
+
+void lockAbri() {
+  sendMsg("Lock abri");
+  // Bloque les commandes d'ouverture de l'abri
+  // TODO
+}
+
+void sendMsg(String message) {
+  // Messages de debug (USB, Telnet, Ecran Oled)
+}
+
 //---------- Fonctions Timer ----------
 
 void appuiLong()
 {
-    if (Bclef || Bnoir) BappuiLong = true;
+    if (Bclef || Bvert) BappuiLong = true;
 }
 
 int dRead(int pin) {
@@ -572,6 +640,7 @@ void readData()
             {
                 sendAck(value);
                 timeMove = millis();
+                Remote=true;
                 cmd=1;
             }
             // Prepare to CLOSE
@@ -579,6 +648,7 @@ void readData()
             {
                 sendAck(value);
                 timeMove = millis();
+                Remote=true;
                 cmd=2;
             }
             // Prepare to ABORT								// Arret de l'abri
@@ -591,6 +661,7 @@ void readData()
                 }
                 else
                 {
+                  Remote=true;
 					        cmd=3;
                   sendAck(value);
                 }
