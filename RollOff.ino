@@ -70,9 +70,9 @@ boolean alreadyConnected = false;
 void callbackMQTT(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
   // Demande de fermeture de l'abri
-  if (strcmp(topic, "close") == 0) fermeAbri();
+  if (strcmp(topic, "abri/close") == 0) fermeAbri();
   // Lock de l'abri
-  else if (strcmp(topic, "lock") == 0) {
+  else if (strcmp(topic, "abri/lock") == 0) {
     // TODO (lecture ON OFF)
   }
 }
