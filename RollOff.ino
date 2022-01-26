@@ -2,8 +2,8 @@
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
   GPL V3
-  Version 6.0
-  22/10/2018-20/01/2022
+  Version 7.0
+  22/10/2018-26/01/2022
   /*********************************/
 
 /***********/

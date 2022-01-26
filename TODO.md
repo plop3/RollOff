@@ -1,7 +1,5 @@
 TODO
 ====
-- Ouverture/fermeture porte 1
-
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
 
@@ -18,7 +16,6 @@ TESTER
 OPTIONS:
 --------
 - Ajout Aux (12V télescope ?)
-- Console Telnet de debug
 - Ajout afficheur Oled
 
 NOTES
