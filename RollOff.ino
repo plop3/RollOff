@@ -115,8 +115,8 @@ const char* VERSION_ID = "V1.2-0";
 #define AbriOuvert    (!dRead(AO))
 #define Stop12V       digitalWrite(ALIM12V, RON)
 #define Start12V      digitalWrite(ALIM12V, ROFF)
-#define StopTel       digitalWrite(ALIMTEL, LOW)
-#define StartTel      digitalWrite(ALIMTEL, HIGH)
+#define StopTel       digitalWrite(ALIMTEL, HIGH)
+#define StartTel      digitalWrite(ALIMTEL, LOW)
 #define CmdMotOff     digitalWrite(CMDMOT, ROFF)
 #define CmdMotOn      digitalWrite(CMDMOT, RON)
 #define MotOn 	  	  digitalWrite(ALIMMOT, RON)
@@ -184,6 +184,7 @@ void setup() {
   pinMode(CMDMOT, OUTPUT);CmdMotOff;  // Coupure de la commande du moteur de déplacement
   MotOff; pinMode(ALIMMOT,OUTPUT);    // Coupure du moteur d'abri
   Start12V;pinMode(ALIM12V, OUTPUT);  // Mise en marche de l'alimentation 12V
+  StopTel;pinMode(ALIMTEL, OUTPUT);
 
   // Initialisation du LM298
   digitalWrite(P11, LOW); pinMode(P11, OUTPUT);
@@ -593,6 +594,7 @@ void gereLeds() {
   // LED verte: télescope parqué
   digitalWrite(LEDV, Park);
   // LED bleu: A DEFINIR
+  digitalWrite(LEDB, !digitalRead(ALIMTEL));
 }
 
 //---------- Fonctions Timer ----------
