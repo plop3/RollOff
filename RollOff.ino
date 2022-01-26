@@ -14,7 +14,7 @@
 /**************/
 /* PARAMETRES */
 /**************/
-#define DEBUG             false   // Mode debug série
+#define DEBUG             true   // Mode debug série
 #define BAUDRATE 	        9600    // Vitesse du port série
 #define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
@@ -69,6 +69,12 @@ boolean alreadyConnected = false;
 // MQTT
 void callbackMQTT(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
+  // Demande de fermeture de l'abri
+  if (strcmp(topic, "close") == 0) fermeAbri();
+  // Lock de l'abri
+  else if (strcmp(topic, "lock") == 0) {
+    // TODO (lecture ON OFF)
+  }
 }
 
 #include <PubSubClient.h>
@@ -134,7 +140,7 @@ const char* VERSION_ID = "V1.2-0";
 /* MACROS */
 /**********/
 #define PortesOuvert  (!dRead(Po1) && !dRead(Po2))
-#define PortesFerme   (dRead(Po1) && dRead(Po2)) 
+//#define PortesFerme   (dRead(Po1) && dRead(Po2)) 
 #define Porte1Ouvert  (!dRead(Po1))
 #define Porte2Ouvert  (!dRead(Po2))
 #define AbriFerme     (!dRead(AF))
@@ -171,7 +177,8 @@ bool BLUMIO;                        // Dernier etat du bouton d'éclairage inté
 bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 bool Remote = true;                 // Commande distante (+ de sécurité)
-bool EtatAbri=false;                      // Dernier état de l'abri (fermé: 0 ouvert:1)
+bool EtatAbri=false;                // Dernier état de l'abri (fermé: 0 ouvert:1)
+bool LOCK=false;                    // Abri locké
 
 //---------- RollOffIno ----------
 const int cLen = 15;
@@ -239,10 +246,18 @@ void setup() {
   // Arret d'urgence appuyé, on attend
   while(Baru) {};
  
+  // TODO récupération de l'état Lock de l'abri
+
   // Portes fermées: moteur abri OFF, sinon ON
-  if (PortesOuvert) startMot();
+  if (PortesOuvert) {
+    startMot();
+    sendMsg("Start M");
+  }
   // Abri ouvert, télescope alimenté
-  if (AbriOuvert) StartTel;
+  if (AbriOuvert) {
+    StartTel;
+    sendMsg("Start tel");
+  }
 
   // Etat initial des boutons d'éclairage
   BLUMIO=!dRead(BLUMI);
@@ -303,13 +318,15 @@ bool deplaceAbri() {
   // Déplace l'abri
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
   sendMsg("Dep abri");
-  if (PortesFerme || !Park) 
+  if (!PortesOuvert || !Park) 
   {
+    sendMsg("Err depl");
     return false;
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri si besoin
   barre(0, 128);
   while(!MotReady) attend(1000,1);
+  sendMsg("Start dep");
   CmdMotOn;
   delay(IMPMOT);
   CmdMotOff;
@@ -318,7 +335,7 @@ bool deplaceAbri() {
   barre(0, 0);
   for (int i=0;i<10;i++) {
     if (AbriOuvert || AbriFerme) {
-        mqtt.publish("esp-abri/status",AbriFerme ? "OFF": "ON");      
+        mqtt.publish("abri/open",AbriFerme ? "OFF": "ON");      
         return true; // Attente des capteurs
     }
     // Délai supplémentaire
@@ -355,7 +372,7 @@ bool fermeAbri() {
   // Ferme l'abri
   sendMsg("F abri");
   if (AbriFerme) return true; // Abri déjà fermé
-  if (PortesFerme) return false;
+  if (!PortesOuvert) return false;
   if (deplaceAbri() && AbriFerme) {
     if (fermePortes()) {
       return true;
@@ -458,7 +475,7 @@ void readBoutons() {
     Remote=false;
     cmd=5;
   }
-  while(Bclef || Bvert || Brouge) {} // Attente de relachement des boutons
+  while(Bclef || Bvert || Brouge) {timer.run();} // Attente de relachement des boutons
 }
 
 void readARU() {
@@ -625,8 +642,10 @@ void gereLeds() {
 
 void connectMQTT() {
   if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
-    mqtt.publish("esp-abri/status",AbriFerme ? "OFF": "ON");
-    mqtt.subscribe("esp-abri/set");
+    mqtt.publish("abri/open",AbriFerme ? "OFF": "ON");
+    mqtt.publish("abri/locked", LOCK ? "ON": "OFF");
+    mqtt.subscribe("abri/close");
+    mqtt.subscribe("abri/lock");
   }
 }
 //---------- Fonctions Timer ----------
@@ -646,6 +665,7 @@ int dRead(int pin) {
 }
 
 void tpsInitMoteur() {
+  sendMsg("Mot ready");
   MotReady=true;
 }
 
@@ -827,7 +847,7 @@ bool isStopAllowed()
 {
   unsigned long timeNow = millis();
    // If the roof is either fully opened or fully closed, ignore the request.
-  if ((AbriOuvert && PortesOuvert) || (AbriFerme && PortesFerme)) 
+  if ((AbriOuvert && PortesOuvert) || (AbriFerme && !PortesOuvert)) 
   {
     return false;
   }

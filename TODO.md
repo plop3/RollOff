@@ -3,8 +3,10 @@ TODO
 - Ajout MQTT fermeture de  l'abri depuis hass
 - Ajout Lock (Indi, MQTT)
 - Park du télescope par réseau
+
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
+
 - Ajout de capteurs "portes fermées"
 - Ajout de barrières IR/US
 - Ajout d'un détecteur PIR
