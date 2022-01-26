@@ -14,7 +14,7 @@
 /**************/
 /* PARAMETRES */
 /**************/
-#define DEBUG             true   // Mode debug série
+#define DEBUG             false   // Mode debug série
 #define BAUDRATE 	        9600    // Vitesse du port série
 #define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
@@ -49,38 +49,6 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
    8-15:  Eclairage intérieur
    16-23: Eclairage table
 */
-
-// Serveurs Telnet
-#include <SPI.h>
-#include <Ethernet.h>
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
-IPAddress ip(192, 168, 0, 16);  
-IPAddress myDns(192, 168, 0, 254);
-IPAddress gateway(192, 168, 0, 254);
-IPAddress subnet(255, 255, 255, 0);
-
-EthernetServer server(9999);
-EthernetClient client;      // Client Telnet 9999
-//EthernetClient clientO;     // Client OnStep 
-//IPAddress onstep(192, 168, 0, 15);
-boolean alreadyConnected = false; 
-
-// MQTT
-void callbackMQTT(char* topic, byte* payload, unsigned int length) {
-  // handle message arrived
-  // Demande de fermeture de l'abri
-  if (strcmp(topic, "abri/close") == 0) fermeAbri();
-  // Lock de l'abri
-  else if (strcmp(topic, "abri/lock") == 0) {
-    // TODO (lecture ON OFF)
-  }
-}
-
-#include <PubSubClient.h>
-IPAddress broker(192, 168, 0, 4);
-EthernetClient mqttclient;
-PubSubClient mqtt(broker, 1883, callbackMQTT, mqttclient);
 
 /**************/
 /* CONSTANTES */
@@ -177,7 +145,6 @@ bool BLUMIO;                        // Dernier etat du bouton d'éclairage inté
 bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 bool Remote = true;                 // Commande distante (+ de sécurité)
-bool EtatAbri=false;                // Dernier état de l'abri (fermé: 0 ouvert:1)
 bool LOCK=false;                    // Abri locké
 
 //---------- RollOffIno ----------
@@ -262,13 +229,6 @@ void setup() {
   // Etat initial des boutons d'éclairage
   BLUMIO=!dRead(BLUMI);
   BLUMTO=!dRead(BLUMT);
-
-    // Ethernet
-  Ethernet.begin(mac, ip, myDns, gateway, subnet);
-
-  // MQTT
-  connectMQTT();
-  sendMsg("Fin init");
 }
 
 /*********************/
@@ -286,7 +246,6 @@ void loop() {
   if (cmd) traiteCommande(cmd); // Traitement de la commande recue
   if (MoteurStatus) survDepl(); // Surveillance déplacement intempestif de l'abri
   if (AbriOuvert || PortesOuvert) meteo();  // Sécurité météo
-  if ((AbriOuvert && !EtatAbri)) {}
 }
 
 /*************/
@@ -335,7 +294,6 @@ bool deplaceAbri() {
   barre(0, 0);
   for (int i=0;i<10;i++) {
     if (AbriOuvert || AbriFerme) {
-        mqtt.publish("abri/open",AbriFerme ? "OFF": "ON");      
         return true; // Attente des capteurs
     }
     // Délai supplémentaire
@@ -494,9 +452,6 @@ void pool() {
   eclairages();
   // LEDs shield
   gereLeds();
-  // Lecture MQTT
-    if (!mqtt.connected()) connectMQTT();
-  mqtt.loop();                  
 }
 
 void stopAbri() {
@@ -640,14 +595,6 @@ void gereLeds() {
   // LED bleu: A DEFINIR
 }
 
-void connectMQTT() {
-  if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
-    mqtt.publish("abri/open",AbriFerme ? "OFF": "ON");
-    mqtt.publish("abri/locked", LOCK ? "ON": "OFF");
-    mqtt.subscribe("abri/close");
-    mqtt.subscribe("abri/lock");
-  }
-}
 //---------- Fonctions Timer ----------
 
 void appuiLong()
@@ -675,38 +622,20 @@ void tpsInitMoteur() {
 
 void sendData(char* buffer) {
   	// Envoi les données sur le port USB
-  switch (TypeCon) {
-    case 0:
-    	Serial.println(buffer);
-	    Serial.flush();
-      break;
-    case 1:
-      client.println(buffer);
-      client.flush();
-      break;
-  }
+ 	Serial.println(buffer);
+  Serial.flush();
 }
 
 void readIndi()
 {   
-  if (Serial.available())
-  {
-    TypeCon=0;
-    readData();
-  }
-  client = server.available();
-  if (client.available()>0 ) {
-    TypeCon=1;
-    readData();
-  } 
+  if (Serial.available()) readData();
 }
 
 bool parseCommand() // (command:target:value)
 {
   char inpBuf[MAX_INPUT+1];
   memset(inpBuf, 0, sizeof(inpBuf));
-  if (TypeCon==0) Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
-  if (TypeCon==1) client.readBytesUntil(')',inpBuf,MAX_INPUT);
+  Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
 	strcpy(command, strtok(inpBuf, "(:"));
   strcpy(target, strtok(NULL, ":"));
   strcpy(value, strtok(NULL, ")"));
