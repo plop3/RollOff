@@ -72,8 +72,8 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 // Capteurs
 #define AO      49      // Capteur abri ouvert
 #define AF      48      // Capteur abri fermé
-#define Po1     24      // Capteur porte 1 ouverte
-#define Po2     25      // Capteur porte 2 ouverte
+#define Po1     25      // Capteur porte 1 ouverte
+#define Po2     24      // Capteur porte 2 ouverte
 #define PARK	  A5      // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
 #define PLUIE   A6      // Capteur de pluie
 // Boutons
@@ -131,7 +131,7 @@ const char* VERSION_ID = "V1.2-0";
 #define Brouge        !dRead(BROUGE)
 #define MoteurStatus  (dRead(ALIMMOT) == RON) // Alimentation du moteur abri
 #define Status12V     (dRead(ALIM12V) == RON) // Alimentation 12V
-#define Park 	        dRead(PARK) 	      // Télescope parqué 
+#define Park 	      dRead(PARK) 	      // Télescope parqué 
 #define Pluie         !dRead(A6)
 #define Baru          !dRead(BARU)
 
@@ -269,7 +269,7 @@ void traiteCommande(int commande) {
     lockAbri();
     break;
   case 5:
-    bougePorte1();
+    bougePorte2();
     break;
   }
 }
@@ -331,7 +331,9 @@ bool fermeAbri() {
   // Ferme l'abri
   sendMsg("F abri");
   if (AbriFerme) return true; // Abri déjà fermé
-  if (!PortesOuvert) return false;
+  if (!PortesOuvert) {
+      if (!ouvrePortes()) return false;
+  }
   if (deplaceAbri() && AbriFerme) {
     if (fermePortes()) {
       return true;
@@ -386,13 +388,13 @@ bool fermePortes() {
   return true;
 }
 
-void bougePorte1() {
+void bougePorte2() {
   // Ouvre/ferme la porte 1
-  if (Porte1Ouvert) {
-    FermeP1;
+  if (Porte2Ouvert) {
+    FermeP2;
   }
   else {
-    OuvreP1;
+    OuvreP2;
   }
 }
 
@@ -421,11 +423,11 @@ void readBoutons() {
 		if (!AbriOuvert) {
 			// Ouverture abri (abri non fermé)
 			Remote=false;
-      cmd=1;
+            cmd=1;
 		}
 		// Fermeture abri
 		else if (AbriOuvert) {
-      Remote=false;
+            Remote=false;
 			cmd=2;
 		}
   }
