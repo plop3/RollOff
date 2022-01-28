@@ -62,7 +62,7 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define P12     5   	// (R6) LM298 2 porte 1
 #define P21     6   	// (R7) LM293 3 porte 2
 #define P22     7   	// (R8) LM298 4 porte 2
-#define SPARK   8     // Sortie Park
+#define SPARK  A8     // Sortie Park
 #define RESETMEGA	A13 // Reset de l'arduino
 #define LEDV    2     // LED verte du shield
 #define LEDB    9     // LED bleue du shield
@@ -181,16 +181,17 @@ void setup() {
   BLUMIO = !dRead(BLUMI);  // Dernier etat du bouton d'éclairage intérieur
 
   // Initialisation des relais
-  pinMode(CMDMOT, OUTPUT);CmdMotOff;  // Coupure de la commande du moteur de déplacement
-  MotOff; pinMode(ALIMMOT,OUTPUT);    // Coupure du moteur d'abri
-  Start12V;pinMode(ALIM12V, OUTPUT);  // Mise en marche de l'alimentation 12V
-  StopTel;pinMode(ALIMTEL, OUTPUT);
+  pinMode(CMDMOT, OUTPUT);       // Coupure de la commande du moteur de déplacement
+  pinMode(ALIMMOT,OUTPUT);       // Coupure du moteur d'abri
+  pinMode(ALIM12V, OUTPUT);      // Mise en marche de l'alimentation 12V
+  pinMode(ALIMTEL, OUTPUT);      // Alimentation télescope
+  pinMode(SPARK, INPUT);         // Sortie demande de Park (collecteur ouvert)
 
   // Initialisation du LM298
-  digitalWrite(P11, LOW); pinMode(P11, OUTPUT);
-  digitalWrite(P12, LOW); pinMode(P12, OUTPUT);
-  digitalWrite(P21, LOW); pinMode(P21, OUTPUT);
-  digitalWrite(P22, LOW); pinMode(P22, OUTPUT);
+  pinMode(P11, OUTPUT);
+  pinMode(P12, OUTPUT);
+  pinMode(P21, OUTPUT);
+  pinMode(P22, OUTPUT);
     
   // Activation des entrées (capteurs...)
   pinMode(AO, INPUT_PULLUP);    // Capteur abri ouvert
@@ -278,10 +279,16 @@ bool deplaceAbri() {
   // Déplace l'abri
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
   sendMsg("Dep abri");
-  if (!PortesOuvert || !Park) 
+  if (!PortesOuvert) 
   {
     sendMsg("Err depl");
     return false;
+  }
+  if (!Park) {
+    if (!parkTelescope()) {
+      sendMsg("Err park");
+      return false;
+    }
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri si besoin
   barre(0, 128);
@@ -538,15 +545,13 @@ bool parkTelescope() {
   sendMsg("Park T");
   // Park du télescope
   // Park du télescope par Pin
-  digitalWrite(SPARK, HIGH);
-  delay(300);
-  digitalWrite(SPARK, LOW);
+  pinMode(SPARK, OUTPUT);
+    delay(300);
+  pinMode(SPARK,INPUT);
   // On attend 3mn max que le télescope soit parqué
   unsigned long tpsdebut = millis();
-  unsigned long tpsact;
   do {
-    tpsact = millis();
-  } while ((tpsact - tpsdebut) < TPSPARK && Park);
+  } while (((millis() - tpsdebut) < TPSPARK) && !Park);
   attend(5000,0);  // Attente du park complet
     if (!Park) {
       return (false);
