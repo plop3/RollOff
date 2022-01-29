@@ -164,7 +164,7 @@ void setup() {
   // Initialisation des ports série
   Serial.begin(BAUDRATE);  		// Port Indi
 
-  delay(1000);                // Attente d'initialisation du matériel
+  delay(200);                // Attente d'initialisation du matériel
 
   // LEDs shield
   pinMode(LEDV, OUTPUT);
@@ -210,7 +210,7 @@ void setup() {
   
   sendMsg("Deb init");
 
-  delay(1000);  // Attente d'initialisation des capteurs
+  //delay(1000);  // Attente d'initialisation des capteurs
 
   // Arret d'urgence appuyé, on attend
   while(Baru) {};
@@ -578,7 +578,7 @@ void abriOff() {
   sendMsg("Abri Off");
   // Mise en veille de l'abri
   MotOff;
-  StopTel;
+  StopTel; 
   // Eteint les éclairages
   barre(0,0);
   barre(1,0);
