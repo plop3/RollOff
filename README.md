@@ -8,7 +8,7 @@ Bouton à clef pour ouverture de l'abri:
     Bouton vert à l'intérieur:
     Commandes identiques au bouton à clef.
     2 boutons arrêt d'urgence (1 intérieur, 1 extérieur)
-    1 bouton rouge (ouverture/fermeture de la porte 1) pour le réglage du panneau à flats
+    1 bouton rouge (ouverture/fermeture de la porte 1)
     2 capteurs de position de l'abri (ouvert, fermé)
     1 capteur de position du télescope (parqué: true)
     2 capteurs d'ouverture des portes
@@ -17,7 +17,6 @@ Bouton à clef pour ouverture de l'abri:
 TODO:
 - Pilotage par MQTT (Home Assistant)
 - Pilotage par serveur Web
-- Park du télescope avant fermeture
 - Détection de pluie
 - Détection d'intrusion par capteur PIR
 - Alerte par SMS en cas de problème.  
