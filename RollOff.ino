@@ -11,6 +11,7 @@
 /***********/
 #include "infos.h";
 #include "Config.h";
+#include "Pinmap.h";
 
 /*****************/
 /* PERIPHERIQUES */
@@ -26,8 +27,7 @@ SimpleTimer timer;
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
-#define LEDPIN 13
-#define NBLEDS 24  // Nombre total de LEDs (3 barrettes de 8 LEDs)
+// APA106
 Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 /*
    0-7:   Eclairage extérieur
