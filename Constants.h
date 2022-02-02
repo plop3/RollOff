@@ -1,6 +1,10 @@
 /**************/
 /* CONSTANTES */
 /**************/
+//---------- RollOffIno ----------
+const int cLen = 15;
+const int tLen = 15;
+const int vLen = MAX_RESPONSE;
 
 /**********/
 /* MACROS */
