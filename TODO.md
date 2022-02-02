@@ -1,5 +1,6 @@
 TODO
 ====
+- LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
 
@@ -9,8 +10,6 @@ TODO
 
 TESTER
 ======
-- Appui long (ouverture porte 1)
-- Gestion de l'alimentation du télescope
 - Abri ouvert et fermé 
 
 OPTIONS:
