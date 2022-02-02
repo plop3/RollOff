@@ -4,6 +4,29 @@
 
 #include "RollOffIno.h";
 
+/**************/
+/* CONSTANTES */
+/**************/
+
+//---------- RollOffIno ----------
+const int cLen = 15;
+const int tLen = 15;
+const int vLen = MAX_RESPONSE;
+
+/**********************/
+/* VARIABLES GLOBALES */
+/**********************/
+
+char command[cLen+1];
+char value[vLen+1];
+char target[tLen+1];
+unsigned long timeMove = 0;
+int TypeCon=0;  // 0: USB, 1: Telnet 9999, 2: Telnet 9998
+
+/*************/
+/* FONCTIONS */
+/*************/
+
 void sendData(char* buffer) {
   	// Envoi les données sur le port USB
  	Serial.println(buffer);
