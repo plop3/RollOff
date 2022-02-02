@@ -2,6 +2,8 @@
 /* FONCTIONS ROLLOFFINO */
 /************************/
 
+#include "RollOffIno.h";
+
 void sendData(char* buffer) {
   	// Envoi les données sur le port USB
  	Serial.println(buffer);
