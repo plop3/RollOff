@@ -10,6 +10,7 @@
 /* MODULES */
 /***********/
 #include "infos.h";
+#include "Config.h";
 
 /**************/
 /* PARAMETRES */
