@@ -279,7 +279,7 @@ bool fermePortes() {
     return false;
   }
   FermeP2;
-  attend(INTERVALLEPORTES,1);
+  attend(INTERVALLEPORTES * 1.5,1);
   FermeP1;
 	attend(DELAIPORTES,1);
   abriOff();

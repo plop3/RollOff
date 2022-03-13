@@ -5,7 +5,7 @@
 #define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON
 #define DELAIPORTES       40000L  // Durée d'ouverture/fermeture des portes (40000L)
-#define INTERVALLEPORTES  12000   // Intervalle entre la fermeture de la porte 1 et de la porte 2
+#define INTERVALLEPORTES  10000   // Intervalle entre la fermeture de la porte 1 et de la porte 2
 #define DELAIABRI         22000L  // Durée de déplacement de l'abri (15000L)
 #define DELAIMOTEUR       50000L  // Délai d'initialisation du moteur abri
 #define IMPMOT            500     // Durée d'impulsion moteur
