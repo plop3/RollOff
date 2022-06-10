@@ -22,7 +22,7 @@
 #define AF      48      // Capteur abri fermé
 #define Po1     25      // Capteur porte 1 ouverte
 #define Po2     24      // Capteur porte 2 ouverte
-#define PARK	A5      // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
+#define PARK	  A5      // Entrée Park: Etat du telescope 0: non parqué, 1: parqué
 #define PLUIE   A6      // Capteur de pluie
 // Boutons
 #define BCLEF   A12     // Bouton à clef d'ouverture/fermeture des portes (pos 1 & 2)
@@ -32,4 +32,3 @@
 #define BARU    23      // Bouton d'arret d'urgence
 #define BLUMT   A11     // Bouton d'éclairage de la table (rouge)  Interrupteur double
 #define BLUMI   A10     // Bouton d'éclairage de l'abri   (rouge)
-
