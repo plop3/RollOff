@@ -469,7 +469,7 @@ void abriOff() {
   sendMsg("Abri Off");
   // Mise en veille de l'abri
   MotOff;
-  StopTel; 
+  //StopTel; 
   // Eteint les éclairages
   barre(0,0);
   barre(1,0);
