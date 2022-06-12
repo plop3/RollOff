@@ -163,6 +163,12 @@ void traiteCommande(int commande) {
   case 5:
     bougePorte2();
     break;
+  case 6:
+    StartTel;
+    break;  
+  case 7:
+    StopTel;
+    break;
   }
 }
 
@@ -615,6 +621,8 @@ void readData()
             else if (strcmp(target, "AUXSET") == 0)     // Bascule de la sorite auxiliaire
             {
               sendAck(value);
+              Remote=true;
+              strcmp(value, "ON") ==0 ? cmd=6: cmd=7;
             }
             else if (strcmp(target, "RESET") == 0)      // RESET Arduino
             {
