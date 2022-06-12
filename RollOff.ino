@@ -643,7 +643,7 @@ void readData()
             else if (strcmp(target, "LOCKED") == 0)
                 requestReceived(0);
             else if (strcmp(target, "AUXSTATE") == 0)
-        requestReceived(0);
+        requestReceived(!digitalRead(ALIMTEL));
             else sendNak(error);
         }
     else {
