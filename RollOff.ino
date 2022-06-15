@@ -37,6 +37,22 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
    16-23: Eclairage table
 */
 
+// Serveurs Telnet
+#include <SPI.h>
+#include <Ethernet.h>
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
+IPAddress ip(192, 168, 0, 16);  
+IPAddress myDns(192, 168, 0, 254);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
+
+EthernetServer server(9999);
+EthernetClient client;      // Client Telnet 9999
+//EthernetClient clientO;     // Client OnStep 
+//IPAddress onstep(192, 168, 0, 15);
+boolean alreadyConnected = false; 
+
 /**********************/
 /* VARIABLES GLOBALES */
 /**********************/
@@ -123,6 +139,9 @@ void setup() {
   BLUMIO=!dRead(BLUMI);
   BLUMTO=!dRead(BLUMT);
 }
+
+  // Ethernet
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
 
 /*********************/
 /* BOUCLE PRINCIPALE */
