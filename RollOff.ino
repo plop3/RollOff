@@ -138,10 +138,10 @@ void setup() {
   // Etat initial des boutons d'éclairage
   BLUMIO=!dRead(BLUMI);
   BLUMTO=!dRead(BLUMT);
-}
-
+	
   // Ethernet
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
+}
 
 /*********************/
 /* BOUCLE PRINCIPALE */
