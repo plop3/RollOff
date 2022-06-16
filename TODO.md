@@ -3,18 +3,23 @@ TODO
 - LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
-
+- Inversion de l'état "PARK" (0: Télescope parqué) /!\ Modif à faire aussi sur auxiliaire (+ fabriquer un dongle pour la maintenance)
 - Ajout de capteurs "portes fermées"
 - Ajout de barrières IR/US
 - Ajout d'un détecteur PIR
+- Accès réseau (Indi)
+- MQTT (Etat abri, O/F abri, éteint éclairages, coupure alimentation 19V...)
+- NTP
+- Fermeture automatique de l'abri au lever du soleil
+- Ouverture programmée de l'abri
+- Coupure automatique de l'alimentation 19V
 
 TESTER
 ======
-- Abri ouvert et fermé 
+- Fiabilité réseau Ethernet
 
 OPTIONS:
 --------
-- Ajout Aux (12V télescope ?)
 - Ajout afficheur Oled
 
 NOTES
