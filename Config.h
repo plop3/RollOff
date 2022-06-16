@@ -12,3 +12,4 @@
 #define BAPPUILONG        3000    //Durée en ms pour un appui long sur le bouton
 #define TPSPARK           180000  // Temps de park du télescope
 #define TPSARRET          600000L // Temps avant l'arret de l'alimentation 12V
+#define HUMMAX            101     // 20 Taux d'humidité maxi pour le capteur de pluie (20)
