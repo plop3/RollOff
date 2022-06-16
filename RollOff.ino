@@ -109,11 +109,11 @@ void setup() {
   pinMode(BNOIR, INPUT_PULLUP); // Bouton noir
   pinMode(BARU, INPUT_PULLUP);  // Bouton ARU
   pinMode(BVERT, INPUT_PULLUP); // Bouton vert
-  pinMode(BROUGE, INPUT_PULLUP); // Bouton rouge
+  pinMode(BROUGE, INPUT_PULLUP);// Bouton rouge
   pinMode(BLUMI, INPUT_PULLUP); // Bouton éclairage intérieur
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
-  pinMode(PARK, INPUT);         // TODO Mettre à INPUT
-  pinMode(PLUIE,INPUT_PULLUP);  // Capteur de pluie
+  pinMode(PARK, INPUT_PULLUP);  // TODO Inverser le signal (0: Télescope parqué)
+  pinMode(PLUIE,INPUT);  	// Capteur de pluie analogique
   
   sendMsg("Deb init");
 
@@ -477,7 +477,7 @@ bool parkTelescope() {
 
 bool meteo() {
   // Sécurité météo: pluie, (vent...)
-  if (Pluie) {
+  if (100 - 100*float(analogRead(PLUIE))/1023) > HUMMAX {
    fermeAbri();
   }
 }
