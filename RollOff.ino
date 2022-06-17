@@ -2,8 +2,8 @@
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
   GPL V3
-  Version 7.1
-  22/10/2018-02/02/2022
+  Version 8.0
+  22/10/2018-16/06/2022
   /*********************************/
 
 /***********/
@@ -47,11 +47,62 @@ IPAddress myDns(192, 168, 0, 254);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 
-EthernetServer server(9999);
-EthernetClient client;      // Client Telnet 9999
-//EthernetClient clientO;     // Client OnStep 
-//IPAddress onstep(192, 168, 0, 15);
+EthernetServer server(9999);	// Serveur Indi
+EthernetClient client;			// Client MQTT
 boolean alreadyConnected = false; 
+
+// MQTT
+
+void callbackMQTT(char* topic, byte* payload, unsigned int length) {
+  // handle message arrived
+  // Demande de fermeture de l'abri
+  if (strcmp(topic, "abri-in") == 0) {
+	  switch ((char)payload[0]) {
+		  case 'A':	// Ouverture abri
+			cmd=1;
+		  break;
+		  case 'a':	//Fermeture abri
+			cmd=2;
+		  break;
+		  case 'P': // Ouvre les portes
+			cmd=8;
+		  break;
+		  case 'p':	// Ferme les portes
+			cmd=9;
+		  break;
+		  case 'F':	// Ouvre porte 1
+			cmd=10;
+		  break;
+		  case 'f':	// Ferme porte 1
+			cmd=11;
+		  break;
+		  case 'l':	// Eteint les éclairages
+			barre(0,0);
+			barre(1,0);
+			barre(2,0);
+		  break;
+		  case 'T':	// Allume l'alimentation télescope
+			cmd=6;
+		break;
+		  case 't': // Eteint l'alimentation télescope
+			cmd=7;
+		  break;
+	  }
+  }
+	  
+  
+  fermeAbri();
+  // Lock de l'abri
+  else if (strcmp(topic, "lock") == 0) {
+    // TODO (lecture ON OFF)
+  }
+}
+
+
+#include <PubSubClient.h>
+IPAddress broker(192, 168, 0, 4);
+EthernetClient mqttclient;
+PubSubClient mqtt(broker, 1883, callbackMQTT, mqttclient);
 
 /**********************/
 /* VARIABLES GLOBALES */
@@ -187,7 +238,17 @@ void traiteCommande(int commande) {
     break;  
   case 7:
     StopTel;
+	mqtt.publish("abri-out/alimtel","OFF");
     break;
+  case 8:
+	ouvrePortes();
+	break;
+  case 9:
+    fermePortes();
+	break;
+  case 10:
+	ouvrePorte1();
+	break;
   }
 }
 
@@ -218,6 +279,7 @@ bool deplaceAbri() {
   barre(0, 0);
   for (int i=0;i<10;i++) {
     if (AbriOuvert || AbriFerme) {
+		mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
         return true; // Attente des capteurs
     }
     // Délai supplémentaire
@@ -303,6 +365,10 @@ bool fermePortes() {
   if (!AbriFerme) {
     return false;
   }
+  if (!Porte1Ouvert) {
+	OuvreP1;
+	attend(DELAIPORTES,1);
+  }
   FermeP2;
   attend(INTERVALLEPORTES * 1.5,1);
   FermeP1;
@@ -311,14 +377,28 @@ bool fermePortes() {
   return true;
 }
 
+void ouvrePorte1() {
+		if (!Porte2Ouvert) OuvreP1;
+}
+
+void fermePorte1() {
+		if (Porte2Ouvert) FermeP1;
+}
+
 void bougePorte2() {
-  // Ouvre/ferme la porte 1
+  // Ouvre/ferme la porte 2 (La porte 1 doit être ouverte)
+  if (!Porte1Ouvert) return;
   if (Porte2Ouvert) {
     FermeP2;
   }
   else {
     OuvreP2;
   }
+}
+
+void startTel() {
+		StartTel;
+		mqtt.publish("abri-out/alimtel", "ON");
 }
 
 void attend(unsigned long delai, bool secu) 
@@ -378,6 +458,9 @@ void pool() {
   eclairages();
   // LEDs shield
   gereLeds();
+  // Lecture MQTT
+  if (!mqtt.connected()) connectMQTT();
+  mqtt.loop();   
 }
 
 void stopAbri() {
@@ -518,6 +601,15 @@ void gereLeds() {
   digitalWrite(LEDV, Park);
   // LED bleu: A DEFINIR
   digitalWrite(LEDB, !digitalRead(ALIMTEL));
+}
+
+void connectMQTT() {
+  if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
+    mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
+    mqtt.publish("abri-out/locked", LOCK ? "ON": "OFF");
+	mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
+    mqtt.subscribe("abri-in");
+  }
 }
 
 //---------- Fonctions Timer ----------
