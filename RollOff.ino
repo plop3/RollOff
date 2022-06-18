@@ -381,10 +381,14 @@ bool fermePortes() {
 
 void ouvrePorte1() {
 		if (!Porte2Ouvert) OuvreP1;
+    while(!Porte2Ouvert) {};
 }
 
 void fermePorte1() {
-		if (!Porte2Ouvert) FermeP1;
+	if (!Porte2Ouvert) {
+    FermeP1;
+    attend(DELAIPORTES,0);
+  }
 }
 
 void bougePorte2() {
