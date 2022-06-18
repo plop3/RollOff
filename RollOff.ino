@@ -381,7 +381,11 @@ bool fermePortes() {
 
 void ouvrePorte1() {
 		OuvreP1;
-    while(!Porte1Ouvert) {};
+    int i=DELAIPORTES*1.2;
+    while(!Porte1Ouvert && i>0 ) {
+      attend(1000,0);
+      i--;
+    }
 }
 
 void fermePorte1() {
