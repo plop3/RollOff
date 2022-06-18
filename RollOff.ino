@@ -380,8 +380,8 @@ bool fermePortes() {
 }
 
 void ouvrePorte1() {
-		if (!Porte2Ouvert) OuvreP1;
-    while(!Porte2Ouvert) {};
+		OuvreP1;
+    while(!Porte1Ouvert) {};
 }
 
 void fermePorte1() {
