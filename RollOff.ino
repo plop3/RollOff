@@ -322,7 +322,11 @@ bool ouvreAbri() {
 bool fermeAbri() {
   // Ferme l'abri
   sendMsg("F abri");
-  if (AbriFerme) return true; // Abri déjà fermé
+  if (AbriFerme) {                                    // Abri déjà fermé
+    if (!Porte1Ouvert && ! Porte2Ouvert) return true; // Portes fermée
+    fermePortes();                                    // Fermeture des portes
+    return true;
+  }
   if (!PortesOuvert) {
       if (!ouvrePortes()) return false;
   }
