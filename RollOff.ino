@@ -477,7 +477,7 @@ bool parkTelescope() {
 
 bool meteo() {
   // Sécurité météo: pluie, (vent...)
-  if (100 - 100*float(analogRead(PLUIE))/1023) > HUMMAX {
+  if ((100 - 100*float(analogRead(PLUIE))/1023) > HUMMAX) {
    fermeAbri();
   }
 }
