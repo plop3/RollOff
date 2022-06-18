@@ -212,35 +212,46 @@ void traiteCommande(int commande) {
   switch (commande){
   case 1: // Ouvre abri
     ouvreAbri();
+    mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
     break;
   case 2: // Ferme abri
     fermeAbri();
+    mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
     break;
   case 3: // Arret de l'abri
     stopAbri();
+    mqtt.publish("abri-out/stop","ON");
     break;
   case 4:
     lockAbri();
+    mqtt.publish("abri-out/locked","ON");
     break;
   case 5:
     bougePorte2();
     break;
   case 6:
     StartTel;
+    mqtt.publish("abri-out/alimtel","ON");
     break;  
   case 7:
     StopTel;
-	mqtt.publish("abri-out/alimtel","OFF");
+	  mqtt.publish("abri-out/alimtel","OFF");
     break;
   case 8:
-	ouvrePortes();
-	break;
+	  ouvrePortes();
+    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
+	  break;
   case 9:
     fermePortes();
+    mqtt.publish("abri-out/doors",PortesOuvert ? "OFF": "ON");
 	break;
   case 10:
 	ouvrePorte1();
+  mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
 	break;
+  case 11:
+  fermePorte1();
+  mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
   }
 }
 
@@ -271,7 +282,6 @@ bool deplaceAbri() {
   barre(0, 0);
   for (int i=0;i<10;i++) {
     if (AbriOuvert || AbriFerme) {
-		mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
         return true; // Attente des capteurs
     }
     // Délai supplémentaire
@@ -599,7 +609,9 @@ void connectMQTT() {
   if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
     mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
     mqtt.publish("abri-out/locked", LOCK ? "ON": "OFF");
-	mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
+    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
+    mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
+	  mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
     mqtt.subscribe("abri-in");
   }
 }
