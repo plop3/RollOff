@@ -15,6 +15,17 @@
 #include "Pinmap.h";		// Pins Arduino Mega
 #include "Constants.h";		// Constantes
 
+/**********************/
+/* VARIABLES GLOBALES */
+/**********************/
+int cmd = 0;                        // Commande a réaliser (0: pas de commande)
+bool BLUMTO;                        // Dernier etat du bouton d'éclairage table
+bool BLUMIO;                        // Dernier etat du bouton d'éclairage intérieur
+bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
+bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
+bool Remote = true;                 // Commande distante (+ de sécurité)
+bool LOCK=false;                    // Abri locké
+
 /*****************/
 /* PERIPHERIQUES */
 /*****************/
@@ -52,7 +63,6 @@ EthernetClient client;			// Client MQTT
 boolean alreadyConnected = false; 
 
 // MQTT
-
 void callbackMQTT(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
   // Demande de fermeture de l'abri
@@ -89,13 +99,6 @@ void callbackMQTT(char* topic, byte* payload, unsigned int length) {
 		  break;
 	  }
   }
-	  
-  
-  fermeAbri();
-  // Lock de l'abri
-  else if (strcmp(topic, "lock") == 0) {
-    // TODO (lecture ON OFF)
-  }
 }
 
 
@@ -103,17 +106,6 @@ void callbackMQTT(char* topic, byte* payload, unsigned int length) {
 IPAddress broker(192, 168, 0, 4);
 EthernetClient mqttclient;
 PubSubClient mqtt(broker, 1883, callbackMQTT, mqttclient);
-
-/**********************/
-/* VARIABLES GLOBALES */
-/**********************/
-int cmd = 0;                        // Commande a réaliser (0: pas de commande)
-bool BLUMTO;                        // Dernier etat du bouton d'éclairage table
-bool BLUMIO;                        // Dernier etat du bouton d'éclairage intérieur
-bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
-bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
-bool Remote = true;                 // Commande distante (+ de sécurité)
-bool LOCK=false;                    // Abri locké
 
 /*********/
 /* SETUP */
@@ -560,7 +552,7 @@ bool parkTelescope() {
 
 bool meteo() {
   // Sécurité météo: pluie, (vent...)
-  if (100 - 100*float(analogRead(PLUIE))/1023) > HUMMAX {
+  if ((100 - 100*float(analogRead(PLUIE))/1023) > HUMMAX) {
    fermeAbri();
   }
 }
