@@ -9,7 +9,6 @@ TODO
 - Ajout de barrières IR/US
 - Ajout d'un détecteur PIR
 - Accès réseau (Indi)
-- MQTT (Etat abri, O/F abri, éteint éclairages, coupure alimentation 19V...)
 - NTP ou RTC/GPS
 - Fermeture automatique de l'abri au lever du soleil
 - Ouverture programmée de l'abri

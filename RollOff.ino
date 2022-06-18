@@ -384,7 +384,7 @@ void ouvrePorte1() {
 }
 
 void fermePorte1() {
-		if (Porte2Ouvert) FermeP1;
+		if (!Porte2Ouvert) FermeP1;
 }
 
 void bougePorte2() {
