@@ -1,5 +1,6 @@
 TODO
 ====
+- Mettre la valeur HUMMAX à 20 quand le capteur de pluie sera installé
 - LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
