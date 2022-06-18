@@ -184,6 +184,9 @@ void setup() {
 	
   // Ethernet
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
+
+  // Mise à jour de l'état de l'abri toutes les 5mn (MQTT)
+  timer.setInterval(300000L, updateMQTT);
 }
 
 /*********************/
@@ -617,13 +620,17 @@ void gereLeds() {
 
 void connectMQTT() {
   if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
-    mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
-    mqtt.publish("abri-out/locked", LOCK ? "ON": "OFF");
-    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
-    mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
-	  mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
+    updateMQTT();
     mqtt.subscribe("abri-in");
   }
+}
+
+void updateMQTT() {
+  mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
+  mqtt.publish("abri-out/locked", LOCK ? "ON": "OFF");
+  mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
+  mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
+	mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
 }
 
 //---------- Fonctions Timer ----------
