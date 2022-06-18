@@ -212,10 +212,12 @@ void traiteCommande(int commande) {
   switch (commande){
   case 1: // Ouvre abri
     ouvreAbri();
+    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
     mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
     break;
   case 2: // Ferme abri
     fermeAbri();
+    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
     mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
     break;
   case 3: // Arret de l'abri
@@ -243,7 +245,7 @@ void traiteCommande(int commande) {
 	  break;
   case 9:
     fermePortes();
-    mqtt.publish("abri-out/doors",PortesOuvert ? "OFF": "ON");
+    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
 	break;
   case 10:
 	ouvrePorte1();
