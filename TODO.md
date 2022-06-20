@@ -1,16 +1,15 @@
 TODO
 ====
 - Installation capteur de pluie
-- Mettre la valeur HUMMAX à 20 quand le capteur de pluie sera installé
-- Ajout de capteurs "portes fermées"
-- Modification code (prise en compte des capteurs portes fermées)
-- Buzzer
+- Buzzer (Sortie PWM)
 - LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
 - Inversion de l'état "PARK" (0: Télescope parqué) /!\ Modif à faire aussi sur auxiliaire (+ fabriquer un dongle pour la maintenance)
 - Ajout de barrières IR/US
 
+- Ajout de capteurs "portes fermées"
+- Modification code (prise en compte des capteurs portes fermées)
 - Accès réseau (Indi)
 - Ajout d'un détecteur PIR
 - NTP ou RTC/GPS
