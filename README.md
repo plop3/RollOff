@@ -14,13 +14,6 @@ Bouton à clef pour ouverture de l'abri:
     2 capteurs d'ouverture des portes
     3 barreaux de LEDs APA106 (éclairages table, intérieur abri, extérieur)
   
-TODO:
-- Pilotage par MQTT (Home Assistant)
-- Pilotage par serveur Web
-- Détection de pluie
-- Détection d'intrusion par capteur PIR
-- Alerte par SMS en cas de problème.  
-  
 OPTIONS:
 - Barrière(s) IR de sécurité
 - Capteurs fermeture des portes
