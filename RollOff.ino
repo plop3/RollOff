@@ -2,15 +2,15 @@
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
   GPL V3
-  Version 8.0
+  Version 8.1
   22/10/2018-16/06/2022
   /*********************************/
 
 /***********/
 /* MODULES */
 /***********/
-#include "infos.h";		// Informations de connexion
-#include "RollOffIno.h";  // Fonctions rollOffIno
+#include "infos.h";			// Informations de connexion
+#include "RollOffIno.h";  	// Fonctions rollOffIno
 #include "Config.h";		// Fichier de configuration
 #include "Pinmap.h";		// Pins Arduino Mega
 #include "Constants.h";		// Constantes
@@ -279,10 +279,30 @@ bool deplaceAbri() {
   barre(0, 128);
   while(!MotReady) attend(1000,1);
   sendMsg("Start dep");
-  CmdMotOn;
-  delay(IMPMOT);
-  CmdMotOff;
-  attend(DELAIABRI,1);
+  // Vérification du mouvement
+  if (AbriOuvert || AbriFerme) {
+	// Capteur positionné
+	int Iter=5;
+	while (Iter > 0 && (AbriOuvert || AbriFerme)) {	
+		Iter--;
+		CmdMotOn;
+		delay(IMPMOT);
+		CmdMotOff;
+		attend(5000,1);
+	}	
+	attend(DELAIABRI-5000,1);
+  }
+  else {
+	// Capteur non positionné
+	int Iter=2;
+	while(Iter > 0 && (!AbriOuvert && !AbriFerme)) {
+		Iter--;
+		CmdMotOn;
+		delay(IMPMOT);
+		CmdMotOff;
+		attend(DELAIABRI,1);  
+	}
+  }
   // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
   for (int i=0;i<10;i++) {
@@ -420,10 +440,9 @@ void startTel() {
 		mqtt.publish("abri-out/alimtel", "ON");
 }
 
-void attend(unsigned long delai, bool secu) 
+void attend(unsigned long delai, bool secu) {
 // Attend un délai déterminé 
 // secu: true -> surveillance du park
-{
   unsigned long previousMillis = millis();
   unsigned long currentMillis;
   do {
