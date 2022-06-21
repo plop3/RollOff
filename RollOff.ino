@@ -68,35 +68,38 @@ void callbackMQTT(char* topic, byte* payload, unsigned int length) {
   // Demande de fermeture de l'abri
   if (strcmp(topic, "abri-in") == 0) {
 	  switch ((char)payload[0]) {
+		  case "S":	// Status MQTT
+			cmd=0;
+			break;
 		  case 'A':	// Ouverture abri
 			cmd=1;
-		  break;
+			break;
 		  case 'a':	//Fermeture abri
 			cmd=2;
-		  break;
+			break;
 		  case 'P': // Ouvre les portes
 			cmd=8;
-		  break;
+			break;
 		  case 'p':	// Ferme les portes
 			cmd=9;
-		  break;
+			break;
 		  case 'F':	// Ouvre porte 1
 			cmd=10;
-		  break;
+			break;
 		  case 'f':	// Ferme porte 1
 			cmd=11;
-		  break;
+			break;
 		  case 'l':	// Eteint les éclairages
 			barre(0,0);
 			barre(1,0);
 			barre(2,0);
-		  break;
+			break;
 		  case 'T':	// Allume l'alimentation télescope
 			cmd=6;
-		break;
+			break;
 		  case 't': // Eteint l'alimentation télescope
 			cmd=7;
-		  break;
+			break;
 	  }
   }
 }
@@ -113,8 +116,7 @@ PubSubClient mqtt(broker, 1883, callbackMQTT, mqttclient);
 void setup() {
   // Initialisation des ports série
   Serial.begin(BAUDRATE);  		// Port Indi
-
-  delay(200);                // Attente d'initialisation du matériel
+  delay(200);                	// Attente d'initialisation du matériel
 
   // LEDs shield
   pinMode(LEDV, OUTPUT);
@@ -137,7 +139,7 @@ void setup() {
   pinMode(ALIMTEL, OUTPUT);      // Alimentation télescope
   pinMode(SPARK, INPUT);         // Sortie demande de Park (collecteur ouvert)
 
-  // Initialisation du LM298
+  // Initialisation du LM298 
   pinMode(P11, OUTPUT);
   pinMode(P12, OUTPUT);
   pinMode(P21, OUTPUT);
@@ -156,11 +158,9 @@ void setup() {
   pinMode(BLUMI, INPUT_PULLUP); // Bouton éclairage intérieur
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
   pinMode(PARK, INPUT_PULLUP);  // TODO Inverser le signal (0: Télescope parqué)
-  pinMode(PLUIE,INPUT);  	// Capteur de pluie analogique
+  pinMode(PLUIE,INPUT);  		// Capteur de pluie analogique
   
   sendMsg("Deb init");
-
-  //delay(1000);  // Attente d'initialisation des capteurs
 
   // Arret d'urgence appuyé, on attend
   while(Baru) {};
@@ -195,15 +195,13 @@ void setup() {
 void loop() {
 
   // Attente des commandes
-  cmd=0;                        // Initialisation des commandes
+  cmd=0;                        			// Initialisation des commandes
   if (AbriOuvert && AbriFerme) stopAbri();  // Problème de capteurs
-  readBoutons();                // Lecture des boutons
-  
+  readBoutons();                			// Lecture des boutons
   pool();
-  
-  if (cmd) traiteCommande(cmd); // Traitement de la commande recue
-  if (MoteurStatus) survDepl(); // Surveillance déplacement intempestif de l'abri
-  if (AbriOuvert || PortesOuvert) meteo();  // Sécurité météo
+  if (cmd) traiteCommande(cmd); 			// Traitement de la commande recue
+  if (MoteurStatus) survDepl(); 			// Surveillance déplacement intempestif de l'abri
+  if (AbriOuvert || Porte1Ouvert || Porte2Ouvert  ) meteo();  // Sécurité météo
 }
 
 /*************/
@@ -213,6 +211,9 @@ void loop() {
 void traiteCommande(int commande) {
   // Traitement des commandes
   switch (commande){
+  case 0:	// Status MQTT
+	updateMQTT();
+	break;
   case 1: // Ouvre abri
     ouvreAbri();
     mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
@@ -264,16 +265,13 @@ bool deplaceAbri() {
   // Déplace l'abri
   // Conditions: télescope parqué, portes ouvertes, pas de déplacement en cours
   sendMsg("Dep abri");
-  if (!PortesOuvert) 
-  {
+  if (!PortesOuvert) {
     sendMsg("Err depl");
     return false;
   }
-  if (!Park) {
-    if (!parkTelescope()) {
-      sendMsg("Err park");
-      return false;
-    }
+  if (!Park) && !parkTelescope()) {				// Tentative de park du télescope
+    sendMsg("Err park");
+    return false;
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri si besoin
   barre(0, 128);
@@ -282,36 +280,31 @@ bool deplaceAbri() {
   // Vérification du mouvement
   if (AbriOuvert || AbriFerme) {
 	// Capteur positionné
-	int Iter=5;
-	while (Iter > 0 && (AbriOuvert || AbriFerme)) {	
-		Iter--;
+	for ( int Iter=5; Iter > 0 && (AbriOuvert || AbriFerme); Iter--) {
 		CmdMotOn;
 		delay(IMPMOT);
 		CmdMotOff;
 		attend(5000,1);
 	}	
 	attend(DELAIABRI-5000,1);
+	for (int i=0; i<10 && (!AbriOuvert && !AbriFerme); i++) attend(1000,1);
   }
   else {
 	// Capteur non positionné
-	int Iter=2;
-	while(Iter > 0 && (!AbriOuvert && !AbriFerme)) {
-		Iter--;
+	for (int Iter=2; Iter > 0 && (!AbriOuvert && !AbriFerme); Iter--) {
 		CmdMotOn;
 		delay(IMPMOT);
 		CmdMotOff;
-		attend(DELAIABRI,1);  
+		attend(DELAIABRI-5000,1);  
+		for (int i=0; i<10 && (!AbriOuvert && !AbriFerme); i++); attend(1000,1);
 	}
   }
   // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
-  for (int i=0;i<10;i++) {
-    if (AbriOuvert || AbriFerme) {
-        return true; // Attente des capteurs
-    }
-    // Délai supplémentaire
-    attend(1000,1);
-   }
+  if (AbriOuvert || AbriFerme) { 			// Attente des capteurs
+	attend(1000,1);							// Délai supplémentaire
+	return true;
+  }
   return false;
 }
 
@@ -328,10 +321,11 @@ bool ouvreAbri() {
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri
   if (ouvrePortes()) {
 	  if (!BappuiLong) {
-		  if (deplaceAbri() && AbriOuvert) {
+		if (deplaceAbri() && AbriOuvert) {
         StartTel;                    // Mise en marche du télescope
-		    return true;
-		  }
+		tone(BUZZER,2000,2000);
+		return true;
+		}
 	  }
 	  else return false;              // Appui long: ouvre seulement les portes
 	}
@@ -351,9 +345,11 @@ bool fermeAbri() {
       if (!ouvrePortes()) return false;
   }
   if (deplaceAbri() && AbriFerme) {
-    if (fermePortes()) {
-      return true;
-    }
+	if (!BappuiLong) {  
+		if (fermePortes()) {
+			return true;
+		}
+	}
   }
   return false;
 }
@@ -382,16 +378,16 @@ bool ouvrePortes() {
     else {
       for (int i=0;i<DELAIPORTES+10;i++) {
         if (PortesOuvert) return true;
-        // Délai supplémentaire   
-        attend(1000,0);
-      }
-    }
+			// Délai supplémentaire   
+			attend(1000,0);
+		}
+	}
   }
-    return false;
+  return false;
 }
 
 bool fermePortes() {
-	// Ferme les portes
+  // Ferme les portes
   sendMsg("F portes");
   if (!AbriFerme) {
     return false;
@@ -404,17 +400,14 @@ bool fermePortes() {
   attend(INTERVALLEPORTES * 1.5,1);
   FermeP1;
 	attend(DELAIPORTES,1);
+	tone(BUZZER,2000,2000);
   abriOff();
   return true;
 }
 
 void ouvrePorte1() {
-		OuvreP1;
-    int i=DELAIPORTES*1.2;
-    while(!Porte1Ouvert && i>0 ) {
-      attend(1000,0);
-      i--;
-    }
+	OuvreP1;
+    for (int i=DELAIPORTES*1.2; !Porte1Ouvert && i>0; i-- ) attend(1000,0);
 }
 
 void fermePorte1() {
@@ -427,17 +420,12 @@ void fermePorte1() {
 void bougePorte2() {
   // Ouvre/ferme la porte 2 (La porte 1 doit être ouverte)
   if (!Porte1Ouvert) return;
-  if (Porte2Ouvert) {
-    FermeP2;
-  }
-  else {
-    OuvreP2;
-  }
+  (Porte2Ouvert) ? FermeP2 : OuvreP2;
 }
 
 void startTel() {
-		StartTel;
-		mqtt.publish("abri-out/alimtel", "ON");
+	StartTel;
+	mqtt.publish("abri-out/alimtel", "ON");
 }
 
 void attend(unsigned long delai, bool secu) {
@@ -457,10 +445,11 @@ void readBoutons() {
   // Déplacement en cours, on ne fait rien
   // Touches ou clef mode principal
 	if (Bclef || Bvert) {
-    BappuiLong=false;
-    // Temporisation pour appui long
-    timer.setTimeout(BAPPUILONG,appuiLong);
-	  // Déplacement de l'abri
+		tone(BUZZER,2000,300);
+		BappuiLong=false;
+		// Temporisation pour appui long
+		timer.setTimeout(BAPPUILONG,appuiLong);
+		// Déplacement de l'abri
 		if (!AbriOuvert) {
 			// Ouverture abri (abri non fermé)
 			Remote=false;
@@ -477,7 +466,7 @@ void readBoutons() {
     Remote=false;
     cmd=5;
   }
-  while(Bclef || Bvert || Brouge) {timer.run();} // Attente de relachement des boutons
+  while(Bclef || Bvert || Brouge) timer.run(); // Attente de relachement des boutons
 }
 
 void readARU() {
@@ -550,23 +539,13 @@ void eclairages() {
   bool Etat = dRead(BLUMI);
   if (Etat != BLUMIO) {
     BLUMIO = Etat;
-    if (Etat) {
-      barre(1, 128);
-    }
-    else {
-      barre(1, 0);
-    }
+    (Etat) ? barre(1, 128): barre(1, 0);
     delay(100); // Anti-rebonds
   }
   Etat = !dRead(BLUMT);
   if (Etat != BLUMTO) {
     BLUMTO = Etat;
-    if (Etat) {
-      barre(2, 128);
-    }
-    else {
-      barre(2, 0);
-    }
+    (Etat) ? barre(2, 128): barre(2, 0);
     delay(100); // Anti-rebonds
   }
 }
@@ -583,17 +562,14 @@ bool parkTelescope() {
   // Park du télescope
   // Park du télescope par Pin
   pinMode(SPARK, OUTPUT);
-    delay(300);
+  delay(300);
   pinMode(SPARK,INPUT);
   // On attend 3mn max que le télescope soit parqué
   unsigned long tpsdebut = millis();
   do {
   } while (((millis() - tpsdebut) < TPSPARK) && !Park);
   attend(5000,0);  // Attente du park complet
-    if (!Park) {
-      return (false);
-    }
-  return true;
+  return(Park);
 }
 
 bool meteo() {
@@ -637,7 +613,7 @@ void gereLeds() {
   // Gestion des LEDs du shield
   // LED verte: télescope parqué
   digitalWrite(LEDV, Park);
-  // LED bleu: A DEFINIR
+  // LED bleu: Alimentation télescope
   digitalWrite(LEDB, !digitalRead(ALIMTEL));
 }
 
@@ -649,11 +625,11 @@ void connectMQTT() {
 }
 
 void updateMQTT() {
-  mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
+  mqtt.publish("abri-out/open", AbriFerme ? "OFF": "ON");
   mqtt.publish("abri-out/locked", LOCK ? "ON": "OFF");
-  mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
-  mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
-	mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
+  mqtt.publish("abri-out/doors", PortesOuvert ? "ON": "OFF");
+  mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON": "OFF");
+  mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
 }
 
 //---------- Fonctions Timer ----------
@@ -661,6 +637,7 @@ void updateMQTT() {
 void appuiLong()
 {
     if (Bclef || Bvert) BappuiLong = true;
+	tone(BUZZER,2000,2000);
 }
 
 int dRead(int pin) {
@@ -693,20 +670,37 @@ int TypeCon=0;  // 0: USB, 1: Telnet 9999, 2: Telnet 9998
 
 void sendData(char* buffer) {
     // Envoi les données sur le port USB
-  Serial.println(buffer);
-  Serial.flush();
+	switch (TypeCon) {
+    case 0:
+    	Serial.println(buffer);
+	    Serial.flush();
+      break;
+    case 1:
+      client.println(buffer);
+      client.flush();
+      break;
+	}
 }
 
 void readIndi()
 {   
-  if (Serial.available()) readData();
+  if (Serial.available())
+  {
+    TypeCon=0;
+    readData();
+  }
+  client = server.available();
+  if (client.available()) {
+    TypeCon=1;
+    readData();
+  } 
 }
 
-bool parseCommand() // (command:target:value)
-{
+bool parseCommand() { // (command:target:value) 
   char inpBuf[MAX_INPUT+1];
   memset(inpBuf, 0, sizeof(inpBuf));
-  Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
+  if (TypeCon==0) Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
+  if (TypeCon==1) client.readBytesUntil(')',inpBuf,MAX_INPUT);
   strcpy(command, strtok(inpBuf, "(:"));
   strcpy(target, strtok(NULL, ":"));
   strcpy(value, strtok(NULL, ")"));
@@ -819,7 +813,7 @@ void sendNak(const char *errorMsg)
         strcat(buffer, ":");
         strcat(buffer, errorMsg);
         strcat(buffer, ")");
-    sendData(buffer);
+		sendData(buffer);
     }
 }
 
