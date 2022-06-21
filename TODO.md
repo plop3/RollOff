@@ -1,7 +1,6 @@
 TODO
 ====
 - Installation capteur de pluie
-- Buzzer (Sortie PWM)
 - LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
