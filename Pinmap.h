@@ -15,6 +15,7 @@
 #define LEDB    9     	// LED bleue du shield
 #define LEDPIN 13		// APA106 
 #define NBLEDS 24  		// Nombre total de LEDs (3 barrettes de 8 LEDs)
+#define BUZZER  44    // 2 - 13, 44 - 46  Buzzer
 
 //---------- Entrées ----------
 // Capteurs
