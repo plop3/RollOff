@@ -68,7 +68,7 @@ void callbackMQTT(char* topic, byte* payload, unsigned int length) {
   // Demande de fermeture de l'abri
   if (strcmp(topic, "abri-in") == 0) {
 	  switch ((char)payload[0]) {
-		  case "S":	// Status MQTT
+		  case 'S':	// Status MQTT
 			cmd=0;
 			break;
 		  case 'A':	// Ouverture abri
@@ -269,7 +269,7 @@ bool deplaceAbri() {
     sendMsg("Err depl");
     return false;
   }
-  if (!Park) && !parkTelescope()) {				// Tentative de park du télescope
+  if (!Park && !parkTelescope()) {				// Tentative de park du télescope
     sendMsg("Err park");
     return false;
   }
