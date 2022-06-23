@@ -428,7 +428,7 @@ void fermePorte2() {
 void bougePorte2() {
   // Ouvre/ferme la porte 2 (La porte 1 doit être ouverte)
   if (!Porte1Ouvert) return;
-  (Porte2Ouvert) ? fermePorte2() : OuvrePorte2();
+  (Porte2Ouvert) ? fermePorte2() : ouvrePorte2();
 }
 
 void startTel() {
