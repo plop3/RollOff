@@ -193,7 +193,6 @@ void setup() {
 /* BOUCLE PRINCIPALE */
 /*********************/
 void loop() {
-
   // Attente des commandes
   cmd=0;                        			// Initialisation des commandes
   if (AbriOuvert && AbriFerme) stopAbri();  // Problème de capteurs
@@ -417,18 +416,15 @@ void fermePorte1() {
   }
 }
 
-void ouvrePorte2() {
-	OuvreP2;
-}
-
-void fermePorte2() {
-	FermeP2;
-}
-
 void bougePorte2() {
   // Ouvre/ferme la porte 2 (La porte 1 doit être ouverte)
   if (!Porte1Ouvert) return;
-  (Porte2Ouvert) ? fermePorte2() : ouvrePorte2();
+  if (Porte2Ouvert) {
+    FermeP2;
+  }
+  else {
+    OuvreP2;
+  }
 }
 
 void startTel() {
@@ -794,13 +790,13 @@ void readData()
         else if (strcmp(command, "GET") == 0)
         {
             if (strcmp(target, "OPENED") == 0)
-        requestReceived(AbriOuvert);
+				requestReceived(AbriOuvert);
             else if (strcmp(target, "CLOSED") == 0)
                 requestReceived(AbriFerme);
             else if (strcmp(target, "LOCKED") == 0)
                 requestReceived(0);
             else if (strcmp(target, "AUXSTATE") == 0)
-        requestReceived(!digitalRead(ALIMTEL));
+				requestReceived(!digitalRead(ALIMTEL));
             else sendNak(error);
         }
     else {
