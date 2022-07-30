@@ -11,6 +11,7 @@ TODO
 - Ajout de capteurs "portes fermées"
 - Modification code (prise en compte des capteurs portes fermées)
 - Accès réseau (Indi)
+- Ajout du protocole Alpaca
 - Ajout d'un détecteur PIR
 - NTP ou RTC/GPS
 - Fermeture automatique de l'abri au lever du soleil
