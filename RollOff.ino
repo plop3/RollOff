@@ -9,11 +9,11 @@
 /***********/
 /* MODULES */
 /***********/
-#include "infos.h";		// Informations de connexion
-#include "RollOffIno.h";  // Fonctions rollOffIno
-#include "Config.h";		// Fichier de configuration
-#include "Pinmap.h";		// Pins Arduino Mega
-#include "Constants.h";		// Constantes
+#include "infos.h"		// Informations de connexion
+#include "RollOffIno.h"  // Fonctions rollOffIno
+#include "Config.h"		// Fichier de configuration
+#include "Pinmap.h"		// Pins Arduino Mega
+#include "Constants.h"	// Constantes
 
 /**********************/
 /* VARIABLES GLOBALES */
