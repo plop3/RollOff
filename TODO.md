@@ -7,14 +7,10 @@ TODO
 - Inversion de l'état "PARK" (0: Télescope parqué) /!\ Modif à faire aussi sur auxiliaire (+ fabriquer un dongle pour la maintenance)
 - Ajout de barrières IR/US
 - Coupure automatique de l'alimentation 19V
+- Serveur Alpaca
 
 - Ajout de capteurs "portes fermées"
 - Modification code (prise en compte des capteurs portes fermées)
-<<<<<<< HEAD
-- Accès réseau (Indi)
-- Ajout du protocole Alpaca
-=======
->>>>>>> devel
 - Ajout d'un détecteur PIR
 
 - NTP ou RTC/GPS
