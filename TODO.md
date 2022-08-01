@@ -20,7 +20,6 @@ TODO
 
 TESTER
 ======
-- Fiabilité réseau Ethernet
 
 OPTIONS:
 --------

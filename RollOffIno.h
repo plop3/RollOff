@@ -3,7 +3,7 @@
 const char* ERROR1 = "The controller response message was too long";
 const char* ERROR2 = "The controller failure message was too long";
 const char* ERROR3 = "Command input request is too long";
-const char* ERROR4 = "Invalid command syntax, both start and end tokens missing"; 
+const char* ERROR4 = "Invalid command syntax, both start and end tokens missing";
 const char* ERROR5 = "Invalid command syntax, no start token found";
 const char* ERROR6 = "Invalid command syntax, no end token found";
 const char* ERROR7 = "Roof controller unable to parse command";

@@ -24,7 +24,7 @@ bool BLUMIO;                        // Dernier etat du bouton d'éclairage inté
 bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 bool Remote = true;                 // Commande distante (+ de sécurité)
-bool LOCK=false;                    // Abri locké
+bool LOCK = false;                  // Abri locké
 
 /*****************/
 /* PERIPHERIQUES */
@@ -52,55 +52,56 @@ Adafruit_NeoPixel pixels(NBLEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 #include <SPI.h>
 #include <Ethernet.h>
 byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
-IPAddress ip(192, 168, 0, 16);  
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE
+};
+IPAddress ip(192, 168, 0, 16);
 IPAddress myDns(192, 168, 0, 254);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 
 EthernetServer server(9999);	// Serveur Indi
 EthernetClient client;			// Client MQTT
-boolean alreadyConnected = false; 
+boolean alreadyConnected = false;
 
 // MQTT
 void callbackMQTT(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
   // Demande de fermeture de l'abri
   if (strcmp(topic, "abri-in") == 0) {
-	  switch ((char)payload[0]) {
-		  case 'S':	// Status MQTT
-			cmd=0;
-			break;
-		  case 'A':	// Ouverture abri
-			cmd=1;
-			break;
-		  case 'a':	//Fermeture abri
-			cmd=2;
-			break;
-		  case 'P': // Ouvre les portes
-			cmd=8;
-			break;
-		  case 'p':	// Ferme les portes
-			cmd=9;
-			break;
-		  case 'F':	// Ouvre porte 1
-			cmd=10;
-			break;
-		  case 'f':	// Ferme porte 1
-			cmd=11;
-			break;
-		  case 'l':	// Eteint les éclairages
-			barre(0,0);
-			barre(1,0);
-			barre(2,0);
-			break;
-		  case 'T':	// Allume l'alimentation télescope
-			cmd=6;
-			break;
-		  case 't': // Eteint l'alimentation télescope
-			cmd=7;
-			break;
-	  }
+    switch ((char)payload[0]) {
+      case 'S':	// Status MQTT
+        cmd = 0;
+        break;
+      case 'A':	// Ouverture abri
+        cmd = 1;
+        break;
+      case 'a':	//Fermeture abri
+        cmd = 2;
+        break;
+      case 'P': // Ouvre les portes
+        cmd = 8;
+        break;
+      case 'p':	// Ferme les portes
+        cmd = 9;
+        break;
+      case 'F':	// Ouvre porte 1
+        cmd = 10;
+        break;
+      case 'f':	// Ferme porte 1
+        cmd = 11;
+        break;
+      case 'l':	// Eteint les éclairages
+        barre(0, 0);
+        barre(1, 0);
+        barre(2, 0);
+        break;
+      case 'T':	// Allume l'alimentation télescope
+        cmd = 6;
+        break;
+      case 't': // Eteint l'alimentation télescope
+        cmd = 7;
+        break;
+    }
   }
 }
 
@@ -120,7 +121,7 @@ void setup() {
 
   // LEDs shield
   pinMode(LEDV, OUTPUT);
-  pinMode(LEDB,OUTPUT);
+  pinMode(LEDB, OUTPUT);
 
   // LEDs APA106
   pixels.begin();
@@ -134,22 +135,22 @@ void setup() {
 
   // Initialisation des relais
   pinMode(CMDMOT, OUTPUT);       // Coupure de la commande du moteur de déplacement
-  pinMode(ALIMMOT,OUTPUT);       // Coupure du moteur d'abri
+  pinMode(ALIMMOT, OUTPUT);      // Coupure du moteur d'abri
   pinMode(ALIM12V, OUTPUT);      // Mise en marche de l'alimentation 12V
   pinMode(ALIMTEL, OUTPUT);      // Alimentation télescope
   pinMode(SPARK, INPUT);         // Sortie demande de Park (collecteur ouvert)
 
-  // Initialisation du LM298 
+  // Initialisation du LM298
   pinMode(P11, OUTPUT);
   pinMode(P12, OUTPUT);
   pinMode(P21, OUTPUT);
   pinMode(P22, OUTPUT);
-    
+
   // Activation des entrées (capteurs...)
   pinMode(AO, INPUT_PULLUP);    // Capteur abri ouvert
   pinMode(AF, INPUT_PULLUP);    // Capteur abri fermé
   pinMode(Po1, INPUT_PULLUP);   // Capteur porte ouverte 1
-  pinMode(Po2, INPUT_PULLUP);   // Capteur porte ouverte 2 
+  pinMode(Po2, INPUT_PULLUP);   // Capteur porte ouverte 2
   pinMode(BCLEF, INPUT_PULLUP); // Bouton à clef
   pinMode(BNOIR, INPUT_PULLUP); // Bouton noir
   pinMode(BARU, INPUT_PULLUP);  // Bouton ARU
@@ -158,13 +159,13 @@ void setup() {
   pinMode(BLUMI, INPUT_PULLUP); // Bouton éclairage intérieur
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
   pinMode(PARK, INPUT_PULLUP);  // TODO Inverser le signal (0: Télescope parqué)
-  pinMode(PLUIE,INPUT);  		// Capteur de pluie analogique
-  
+  pinMode(PLUIE, INPUT);  		// Capteur de pluie analogique
+
   sendMsg("Deb init");
 
   // Arret d'urgence appuyé, on attend
-  while(Baru) {};
- 
+  while (Baru) {};
+
   // TODO récupération de l'état Lock de l'abri
 
   // Portes fermées: moteur abri OFF, sinon ON
@@ -179,9 +180,9 @@ void setup() {
   }
 
   // Etat initial des boutons d'éclairage
-  BLUMIO=!dRead(BLUMI);
-  BLUMTO=!dRead(BLUMT);
-	
+  BLUMIO = !dRead(BLUMI);
+  BLUMTO = !dRead(BLUMT);
+
   // Ethernet
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
 
@@ -194,7 +195,7 @@ void setup() {
 /*********************/
 void loop() {
   // Attente des commandes
-  cmd=0;                        			// Initialisation des commandes
+  cmd = 0;                        			// Initialisation des commandes
   if (AbriOuvert && AbriFerme) stopAbri();  // Problème de capteurs
   readBoutons();                			// Lecture des boutons
   pool();
@@ -209,54 +210,54 @@ void loop() {
 
 void traiteCommande(int commande) {
   // Traitement des commandes
-  switch (commande){
-  case 0:	// Status MQTT
-	updateMQTT();
-	break;
-  case 1: // Ouvre abri
-    ouvreAbri();
-    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
-    mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
-    break;
-  case 2: // Ferme abri
-    fermeAbri();
-    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
-    mqtt.publish("abri-out/open",AbriFerme ? "OFF": "ON");
-    break;
-  case 3: // Arret de l'abri
-    stopAbri();
-    mqtt.publish("abri-out/stop","ON");
-    break;
-  case 4:
-    lockAbri();
-    mqtt.publish("abri-out/locked","ON");
-    break;
-  case 5:
-    bougePorte2();
-    break;
-  case 6:
-    StartTel;
-    mqtt.publish("abri-out/alimtel","ON");
-    break;  
-  case 7:
-    StopTel;
-	  mqtt.publish("abri-out/alimtel","OFF");
-    break;
-  case 8:
-	  ouvrePortes();
-    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
-	  break;
-  case 9:
-    fermePortes();
-    mqtt.publish("abri-out/doors",PortesOuvert ? "ON": "OFF");
-	break;
-  case 10:
-	ouvrePorte1();
-  mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
-	break;
-  case 11:
-  fermePorte1();
-  mqtt.publish("abri-out/door1",Porte1Ouvert ? "ON": "OFF");
+  switch (commande) {
+    case 0:	// Status MQTT
+      updateMQTT();
+      break;
+    case 1: // Ouvre abri
+      ouvreAbri();
+      mqtt.publish("abri-out/doors", PortesOuvert ? "ON" : "OFF");
+      mqtt.publish("abri-out/open", AbriFerme ? "OFF" : "ON");
+      break;
+    case 2: // Ferme abri
+      fermeAbri();
+      mqtt.publish("abri-out/doors", PortesOuvert ? "ON" : "OFF");
+      mqtt.publish("abri-out/open", AbriFerme ? "OFF" : "ON");
+      break;
+    case 3: // Arret de l'abri
+      stopAbri();
+      mqtt.publish("abri-out/stop", "ON");
+      break;
+    case 4:
+      lockAbri();
+      mqtt.publish("abri-out/locked", "ON");
+      break;
+    case 5:
+      bougePorte2();
+      break;
+    case 6:
+      StartTel;
+      mqtt.publish("abri-out/alimtel", "ON");
+      break;
+    case 7:
+      StopTel;
+      mqtt.publish("abri-out/alimtel", "OFF");
+      break;
+    case 8:
+      ouvrePortes();
+      mqtt.publish("abri-out/doors", PortesOuvert ? "ON" : "OFF");
+      break;
+    case 9:
+      fermePortes();
+      mqtt.publish("abri-out/doors", PortesOuvert ? "ON" : "OFF");
+      break;
+    case 10:
+      ouvrePorte1();
+      mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON" : "OFF");
+      break;
+    case 11:
+      fermePorte1();
+      mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON" : "OFF");
   }
 }
 
@@ -274,42 +275,42 @@ bool deplaceAbri() {
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri si besoin
   barre(0, 128);
-  while(!MotReady) attend(1000,1);
+  while (!MotReady) attend(1000, 1);
   sendMsg("Start dep");
   // Vérification du mouvement
   if (AbriOuvert || AbriFerme) {
-	// Capteur positionné
-	for ( int Iter=5; Iter > 0 && (AbriOuvert || AbriFerme); Iter--) {
-		CmdMotOn;
-		delay(IMPMOT);
-		CmdMotOff;
-		attend(5000,1);
-	}	
-	attend(DELAIABRI-5000,1);
-	for (int i=0; i<10 && (!AbriOuvert && !AbriFerme); i++) attend(1000,1);
+    // Capteur positionné
+    for ( int Iter = 5; Iter > 0 && (AbriOuvert || AbriFerme); Iter--) {
+      CmdMotOn;
+      delay(IMPMOT);
+      CmdMotOff;
+      attend(5000, 1);
+    }
+    attend(DELAIABRI - 5000, 1);
+    for (int i = 0; i < 10 && (!AbriOuvert && !AbriFerme); i++) attend(1000, 1);
   }
   else {
-	// Capteur non positionné
-	for (int Iter=2; Iter > 0 && (!AbriOuvert && !AbriFerme); Iter--) {
-		CmdMotOn;
-		delay(IMPMOT);
-		CmdMotOff;
-		attend(DELAIABRI-5000,1);  
-		for (int i=0; i<10 && (!AbriOuvert && !AbriFerme); i++); attend(1000,1);
-	}
+    // Capteur non positionné
+    for (int Iter = 2; Iter > 0 && (!AbriOuvert && !AbriFerme); Iter--) {
+      CmdMotOn;
+      delay(IMPMOT);
+      CmdMotOff;
+      attend(DELAIABRI - 5000, 1);
+      for (int i = 0; i < 10 && (!AbriOuvert && !AbriFerme); i++); attend(1000, 1);
+    }
   }
   // Attend le positionnement de l'abri ou l'annulation du déplacement
   barre(0, 0);
   if (AbriOuvert || AbriFerme) { 			// Attente des capteurs
-	attend(1000,1);							// Délai supplémentaire
-	return true;
+    attend(1000, 1);							// Délai supplémentaire
+    return true;
   }
   return false;
 }
 
 bool ouvreAbri() {
-	// Ouvre l'abri
-  // Conditions: 
+  // Ouvre l'abri
+  // Conditions:
   if (AbriOuvert) return true;  	// Abri déjà ouvert
   sendMsg("Ouv abri");
   // Gestion appui long (clef et bouton vert)
@@ -319,15 +320,15 @@ bool ouvreAbri() {
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri
   if (ouvrePortes()) {
-	  if (!BappuiLong) {
-		if (deplaceAbri() && AbriOuvert) {
+    if (!BappuiLong) {
+      if (deplaceAbri() && AbriOuvert) {
         StartTel;                    // Mise en marche du télescope
-		tone(BUZZER,2000,2000);
-		return true;
-		}
-	  }
-	  else return false;              // Appui long: ouvre seulement les portes
-	}
+        tone(BUZZER, 2000, 2000);
+        return true;
+      }
+    }
+    else return false;              // Appui long: ouvre seulement les portes
+  }
   else return false;                // Portes non ouvertes
   return true;
 }
@@ -341,20 +342,20 @@ bool fermeAbri() {
     return true;
   }
   if (!PortesOuvert) {
-      if (!ouvrePortes()) return false;
+    if (!ouvrePortes()) return false;
   }
   if (deplaceAbri() && AbriFerme) {
-	if (!BappuiLong) {  
-		if (fermePortes()) {
-			return true;
-		}
-	}
+    if (!BappuiLong) {
+      if (fermePortes()) {
+        return true;
+      }
+    }
   }
   return false;
 }
 
 bool ouvrePortes() {
-	// Ouvre les portes
+  // Ouvre les portes
   sendMsg("O portes");
   if (PortesOuvert && !Remote) {
     // Portes ouvertes
@@ -364,23 +365,23 @@ bool ouvrePortes() {
   }
   else {
     OuvreP1;
-    attend(INTERVALLEPORTES,0);
-		OuvreP2;
+    attend(INTERVALLEPORTES, 0);
+    OuvreP2;
     if (Remote) {
-      attend(DELAIPORTES,0);
-      for (int i=0;i<10;i++) {
+      attend(DELAIPORTES, 0);
+      for (int i = 0; i < 10; i++) {
         if (PortesOuvert) return true;
-        // Délai supplémentaire   
-        attend(1000,0);
+        // Délai supplémentaire
+        attend(1000, 0);
       }
     }
     else {
-      for (int i=0;i<DELAIPORTES+10;i++) {
+      for (int i = 0; i < DELAIPORTES + 10; i++) {
         if (PortesOuvert) return true;
-			// Délai supplémentaire   
-			attend(1000,0);
-		}
-	}
+        // Délai supplémentaire
+        attend(1000, 0);
+      }
+    }
   }
   return false;
 }
@@ -392,27 +393,27 @@ bool fermePortes() {
     return false;
   }
   if (!Porte1Ouvert) {
-	OuvreP1;
-	attend(DELAIPORTES,1);
+    OuvreP1;
+    attend(DELAIPORTES, 1);
   }
   FermeP2;
-  attend(INTERVALLEPORTES * 1.5,1);
+  attend(INTERVALLEPORTES * 1.5, 1);
   FermeP1;
-	attend(DELAIPORTES,1);
-	tone(BUZZER,2000,2000);
+  attend(DELAIPORTES, 1);
+  tone(BUZZER, 2000, 2000);
   abriOff();
   return true;
 }
 
 void ouvrePorte1() {
-	OuvreP1;
-    for (int i=DELAIPORTES*1.2; !Porte1Ouvert && i>0; i-- ) attend(1000,0);
+  OuvreP1;
+  for (int i = DELAIPORTES * 1.2; !Porte1Ouvert && i > 0; i-- ) attend(1000, 0);
 }
 
 void fermePorte1() {
-	if (!Porte2Ouvert) {
+  if (!Porte2Ouvert) {
     FermeP1;
-    attend(DELAIPORTES,0);
+    attend(DELAIPORTES, 0);
   }
 }
 
@@ -428,13 +429,13 @@ void bougePorte2() {
 }
 
 void startTel() {
-	StartTel;
-	mqtt.publish("abri-out/alimtel", "ON");
+  StartTel;
+  mqtt.publish("abri-out/alimtel", "ON");
 }
 
 void attend(unsigned long delai, bool secu) {
-// Attend un délai déterminé 
-// secu: true -> surveillance du park
+  // Attend un délai déterminé
+  // secu: true -> surveillance du park
   unsigned long previousMillis = millis();
   unsigned long currentMillis;
   do {
@@ -448,29 +449,29 @@ void readBoutons() {
   // Lecture des boutons de l'abri
   // Déplacement en cours, on ne fait rien
   // Touches ou clef mode principal
-	if (Bclef || Bvert) {
-		tone(BUZZER,2000,300);
-		BappuiLong=false;
-		// Temporisation pour appui long
-		timer.setTimeout(BAPPUILONG,appuiLong);
-		// Déplacement de l'abri
-		if (!AbriOuvert) {
-			// Ouverture abri (abri non fermé)
-			Remote=false;
-            cmd=1;
-		}
-		// Fermeture abri
-		else if (AbriOuvert) {
-            Remote=false;
-			cmd=2;
-		}
+  if (Bclef || Bvert) {
+    tone(BUZZER, 2000, 300);
+    BappuiLong = false;
+    // Temporisation pour appui long
+    timer.setTimeout(BAPPUILONG, appuiLong);
+    // Déplacement de l'abri
+    if (!AbriOuvert) {
+      // Ouverture abri (abri non fermé)
+      Remote = false;
+      cmd = 1;
+    }
+    // Fermeture abri
+    else if (AbriOuvert) {
+      Remote = false;
+      cmd = 2;
+    }
   }
   if (Brouge) {
     // Ouverture/fermeture de la porte1
-    Remote=false;
-    cmd=5;
+    Remote = false;
+    cmd = 5;
   }
-  while(Bclef || Bvert || Brouge) timer.run(); // Attente de relachement des boutons
+  while (Bclef || Bvert || Brouge) timer.run(); // Attente de relachement des boutons
 }
 
 void readARU() {
@@ -480,7 +481,7 @@ void readARU() {
 
 void pool() {
   // Timers
-  timer.run();  
+  timer.run();
   // Fonctions périodiques
   readIndi();     // Lecture des commandes Indi
   // Gestion ARU
@@ -491,7 +492,7 @@ void pool() {
   gereLeds();
   // Lecture MQTT
   if (!mqtt.connected()) connectMQTT();
-  mqtt.loop();   
+  mqtt.loop();
 }
 
 void stopAbri() {
@@ -506,26 +507,26 @@ void stopAbri() {
   digitalWrite(P22, LOW);
   // Plus d'action en cours
   if (!Baru) {
-    while(!Baru) {
-      barre(0,128);
-      barre(1,128);
+    while (!Baru) {
+      barre(0, 128);
+      barre(1, 128);
       delay(500);
-      barre(0,0);
-      barre(1,0);
+      barre(0, 0);
+      barre(1, 0);
       delay(500);
-    }	
+    }
   }
   delay(500);
-  while(Baru) {
-    barre(0,128);
-    barre(1,128);
+  while (Baru) {
+    barre(0, 128);
+    barre(1, 128);
     delay(500);
-    barre(0,0);
-    barre(1,0);
+    barre(0, 0);
+    barre(1, 0);
     delay(500);
   }
-    // Reset de l'arduino
-    pinMode(RESETMEGA, OUTPUT);
+  // Reset de l'arduino
+  pinMode(RESETMEGA, OUTPUT);
 }
 
 void survDepl() {
@@ -543,13 +544,13 @@ void eclairages() {
   bool Etat = dRead(BLUMI);
   if (Etat != BLUMIO) {
     BLUMIO = Etat;
-    (Etat) ? barre(1, 128): barre(1, 0);
+    (Etat) ? barre(1, 128) : barre(1, 0);
     delay(100); // Anti-rebonds
   }
   Etat = !dRead(BLUMT);
   if (Etat != BLUMTO) {
     BLUMTO = Etat;
-    (Etat) ? barre(2, 128): barre(2, 0);
+    (Etat) ? barre(2, 128) : barre(2, 0);
     delay(100); // Anti-rebonds
   }
 }
@@ -567,19 +568,19 @@ bool parkTelescope() {
   // Park du télescope par Pin
   pinMode(SPARK, OUTPUT);
   delay(300);
-  pinMode(SPARK,INPUT);
+  pinMode(SPARK, INPUT);
   // On attend 3mn max que le télescope soit parqué
   unsigned long tpsdebut = millis();
   do {
   } while (((millis() - tpsdebut) < TPSPARK) && !Park);
-  attend(5000,0);  // Attente du park complet
-  return(Park);
+  attend(5000, 0); // Attente du park complet
+  return (Park);
 }
 
 bool meteo() {
   // Sécurité météo: pluie, (vent...)
-  if ((100 - 100*float(analogRead(PLUIE))/1023) > HUMMAX) {
-   fermeAbri();
+  if ((100 - 100 * float(analogRead(PLUIE)) / 1023) > HUMMAX) {
+    fermeAbri();
   }
 }
 
@@ -587,19 +588,19 @@ void startMot() {
   sendMsg("Mot On");
   // Alimente le moteur de l'abri
   MotOn;
-  MotReady=false;
-  timer.setTimeout(DELAIMOTEUR,tpsInitMoteur);
+  MotReady = false;
+  timer.setTimeout(DELAIMOTEUR, tpsInitMoteur);
 }
 
 void abriOff() {
   sendMsg("Abri Off");
   // Mise en veille de l'abri
   MotOff;
-  //StopTel; 
+  //StopTel;
   // Eteint les éclairages
-  barre(0,0);
-  barre(1,0);
-  barre(2,0);
+  barre(0, 0);
+  barre(1, 0);
+  barre(2, 0);
 }
 
 void lockAbri() {
@@ -622,95 +623,95 @@ void gereLeds() {
 }
 
 void connectMQTT() {
-  if (mqtt.connect("abri",MQTTUSER,MQTTPASSWD)) {
+  if (mqtt.connect("abri", MQTTUSER, MQTTPASSWD)) {
     updateMQTT();
     mqtt.subscribe("abri-in");
   }
 }
 
 void updateMQTT() {
-  mqtt.publish("abri-out/open", AbriFerme ? "OFF": "ON");
-  mqtt.publish("abri-out/locked", LOCK ? "ON": "OFF");
-  mqtt.publish("abri-out/doors", PortesOuvert ? "ON": "OFF");
-  mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON": "OFF");
-  mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON": "OFF");
+  mqtt.publish("abri-out/open", AbriFerme ? "OFF" : "ON");
+  mqtt.publish("abri-out/locked", LOCK ? "ON" : "OFF");
+  mqtt.publish("abri-out/doors", PortesOuvert ? "ON" : "OFF");
+  mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON" : "OFF");
+  mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON" : "OFF");
 }
 
 //---------- Fonctions Timer ----------
 
 void appuiLong()
 {
-    if (Bclef || Bvert) BappuiLong = true;
-	tone(BUZZER,2000,2000);
+  if (Bclef || Bvert) BappuiLong = true;
+  tone(BUZZER, 2000, 2000);
 }
 
 int dRead(int pin) {
   // Lecture des entrées "anti-parasitées"
-  bool a=digitalRead(pin);
+  bool a = digitalRead(pin);
   delay(20);
-  if (digitalRead(pin)==a) return a;
+  if (digitalRead(pin) == a) return a;
   delay(20);
   return digitalRead(pin);
 }
 
 void tpsInitMoteur() {
   sendMsg("Mot ready");
-  MotReady=true;
+  MotReady = true;
 }
 
 /************************/
 /* FONCTIONS ROLLOFFINO */
 /************************/
 
-char command[cLen+1];
-char value[vLen+1];
-char target[tLen+1];
+char command[cLen + 1];
+char value[vLen + 1];
+char target[tLen + 1];
 unsigned long timeMove = 0;
-int TypeCon=0;  // 0: USB, 1: Telnet 9999, 2: Telnet 9998
+int TypeCon = 0; // 0: USB, 1: Telnet 9999, 2: Telnet 9998
 
 /*************/
 /* FONCTIONS */
 /*************/
 
 void sendData(char* buffer) {
-    // Envoi les données sur le port USB
-	switch (TypeCon) {
+  // Envoi les données sur le port USB
+  switch (TypeCon) {
     case 0:
-    	Serial.println(buffer);
-	    Serial.flush();
+      Serial.println(buffer);
+      Serial.flush();
       break;
     case 1:
       client.println(buffer);
       client.flush();
       break;
-	}
+  }
 }
 
 void readIndi()
-{   
+{
   if (Serial.available())
   {
-    TypeCon=0;
+    TypeCon = 0;
     readData();
   }
   client = server.available();
   if (client.available()) {
-    TypeCon=1;
+    TypeCon = 1;
     readData();
-  } 
+  }
 }
 
-bool parseCommand() { // (command:target:value) 
-  char inpBuf[MAX_INPUT+1];
+bool parseCommand() { // (command:target:value)
+  char inpBuf[MAX_INPUT + 1];
   memset(inpBuf, 0, sizeof(inpBuf));
-  if (TypeCon==0) Serial.readBytesUntil(')',inpBuf,MAX_INPUT);
-  if (TypeCon==1) client.readBytesUntil(')',inpBuf,MAX_INPUT);
+  if (TypeCon == 0) Serial.readBytesUntil(')', inpBuf, MAX_INPUT);
+  if (TypeCon == 1) client.readBytesUntil(')', inpBuf, MAX_INPUT);
   strcpy(command, strtok(inpBuf, "(:"));
   strcpy(target, strtok(NULL, ":"));
   strcpy(value, strtok(NULL, ")"));
   if ((strlen(command) > 2) && strlen(target) && strlen(value))
   {
-      return true;
+    return true;
   }
   sendNak(ERROR7);
   return false;
@@ -718,107 +719,107 @@ bool parseCommand() { // (command:target:value)
 
 void readData()
 {
-    // Confirm there is input available, read and parse it.
-    if (parseCommand())
+  // Confirm there is input available, read and parse it.
+  if (parseCommand())
+  {
+    const char *error = ERROR8;
+    // On initial connection return the version
+    if (strcmp(command, "CON") == 0)
     {
-        const char *error = ERROR8;
-        // On initial connection return the version
-        if (strcmp(command, "CON") == 0)
-        {
-            strcpy(value, VERSION_ID); // Can be seen on host to confirm what is running
-            sendAck(value);
+      strcpy(value, VERSION_ID); // Can be seen on host to confirm what is running
+      sendAck(value);
       return;
-        }
-        // Map the general input command term to the local action
-        // SET: OPEN, CLOSE, ABORT, LOCK, AUXSET
-        else if (strcmp(command, "SET") == 0) 
+    }
+    // Map the general input command term to the local action
+    // SET: OPEN, CLOSE, ABORT, LOCK, AUXSET
+    else if (strcmp(command, "SET") == 0)
+    {
+      // Prepare to OPEN
+      if (strcmp(target, "OPEN") == 0)        // Ouverture de l'abri
+      {
+        sendAck(value);
+        timeMove = millis();
+        Remote = true;
+        cmd = 1;
+      }
+      // Prepare to CLOSE
+      else if (strcmp(target, "CLOSE") == 0)      // Fermeture de l'abri
+      {
+        sendAck(value);
+        timeMove = millis();
+        Remote = true;
+        cmd = 2;
+      }
+      // Prepare to ABORT               // Arret de l'abri
+      else if (strcmp(target, "ABORT") == 0)
+      {
+        // Test whether or not to Abort
+        if (!isStopAllowed())
         {
-            // Prepare to OPEN
-            if (strcmp(target, "OPEN") == 0)        // Ouverture de l'abri
-            {
-                sendAck(value);
-                timeMove = millis();
-                Remote=true;
-                cmd=1;
-            }
-            // Prepare to CLOSE
-            else if (strcmp(target, "CLOSE") == 0)      // Fermeture de l'abri
-            {
-                sendAck(value);
-                timeMove = millis();
-                Remote=true;
-                cmd=2;
-            }
-            // Prepare to ABORT               // Arret de l'abri
-            else if (strcmp(target, "ABORT") == 0)
-            {
-                // Test whether or not to Abort
-                if (!isStopAllowed())
-                {
-                    error = ERROR10;
-                }
-                else
-                {
-                  Remote=true;
-                  cmd=3;
-                  sendAck(value);
-                }
-            }
-            // Prepare for the Lock function
-            else if (strcmp(target, "LOCK") == 0)     // Lock de l'abri
-            {
-              sendAck(value);
-            }
+          error = ERROR10;
+        }
+        else
+        {
+          Remote = true;
+          cmd = 3;
+          sendAck(value);
+        }
+      }
+      // Prepare for the Lock function
+      else if (strcmp(target, "LOCK") == 0)     // Lock de l'abri
+      {
+        sendAck(value);
+      }
 
-            // Prepare for the Auxiliary function
-            else if (strcmp(target, "AUXSET") == 0)     // Bascule de la sorite auxiliaire
-            {
-              sendAck(value);
-              Remote=true;
-              strcmp(value, "ON") ==0 ? cmd=6: cmd=7;
-            }
-            else if (strcmp(target, "RESET") == 0)      // RESET Arduino
-            {
-                sendAck(value);
-                delay(300);
-                pinMode(RESETMEGA, OUTPUT);
-            }
-            else sendNak(error);
-        }
-        // Handle requests to obtain the status of switches
-        // GET: OPENED, CLOSED, LOCKED, AUXSTATE
-        else if (strcmp(command, "GET") == 0)
-        {
-            if (strcmp(target, "OPENED") == 0)
-				requestReceived(AbriOuvert);
-            else if (strcmp(target, "CLOSED") == 0)
-                requestReceived(AbriFerme);
-            else if (strcmp(target, "LOCKED") == 0)
-                requestReceived(0);
-            else if (strcmp(target, "AUXSTATE") == 0)
-				requestReceived(!digitalRead(ALIMTEL));
-            else sendNak(error);
-        }
+      // Prepare for the Auxiliary function
+      else if (strcmp(target, "AUXSET") == 0)     // Bascule de la sorite auxiliaire
+      {
+        sendAck(value);
+        Remote = true;
+        strcmp(value, "ON") == 0 ? cmd = 6 : cmd = 7;
+      }
+      else if (strcmp(target, "RESET") == 0)      // RESET Arduino
+      {
+        sendAck(value);
+        delay(300);
+        pinMode(RESETMEGA, OUTPUT);
+      }
+      else sendNak(error);
+    }
+    // Handle requests to obtain the status of switches
+    // GET: OPENED, CLOSED, LOCKED, AUXSTATE
+    else if (strcmp(command, "GET") == 0)
+    {
+      if (strcmp(target, "OPENED") == 0)
+        requestReceived(AbriOuvert);
+      else if (strcmp(target, "CLOSED") == 0)
+        requestReceived(AbriFerme);
+      else if (strcmp(target, "LOCKED") == 0)
+        requestReceived(0);
+      else if (strcmp(target, "AUXSTATE") == 0)
+        requestReceived(!digitalRead(ALIMTEL));
+      else sendNak(error);
+    }
     else {
-            sendNak(error); // Unknown input or Abort command was rejected
-        }
-    }   // end command parsed
+      sendNak(error); // Unknown input or Abort command was rejected
+    }
+  }   // end command parsed
 }       // end Serial input found
 
 void sendNak(const char *errorMsg)
 {
-    char buffer[MAX_RESPONSE];
-    if (strlen(errorMsg) > MAX_MESSAGE)
-        sendNak(ERROR2);
-    else
-    {
-        strcpy(buffer, "(NAK:ERROR:");
-        strcat(buffer, value);
-        strcat(buffer, ":");
-        strcat(buffer, errorMsg);
-        strcat(buffer, ")");
-		sendData(buffer);
-    }
+  char buffer[MAX_RESPONSE];
+  if (strlen(errorMsg) > MAX_MESSAGE)
+    sendNak(ERROR2);
+  else
+  {
+    strcpy(buffer, "(NAK:ERROR:");
+    strcat(buffer, value);
+    strcat(buffer, ":");
+    strcat(buffer, errorMsg);
+    strcat(buffer, ")");
+    sendData(buffer);
+  }
 }
 
 void sendAck(char* val)
@@ -827,27 +828,27 @@ void sendAck(char* val)
   if (strlen(val) > MAX_MESSAGE)
     sendNak(ERROR1);
   else
-  {  
+  {
     strcpy(response, "(ACK:");
     strcat(response, target);
     strcat(response, ":");
     strcat(response, val);
     strcat(response, ")");
-  sendData(response);
+    sendData(response);
   }
 }
 
 void requestReceived(int state)
 {
-  strcpy(value, state ? "ON":"OFF");
-  sendAck(value);            // Send result of reading pin associated with "target" 
+  strcpy(value, state ? "ON" : "OFF");
+  sendAck(value);            // Send result of reading pin associated with "target"
 }
 
 bool isStopAllowed()
 {
   unsigned long timeNow = millis();
-   // If the roof is either fully opened or fully closed, ignore the request.
-  if ((AbriOuvert && PortesOuvert) || (AbriFerme && !PortesOuvert)) 
+  // If the roof is either fully opened or fully closed, ignore the request.
+  if ((AbriOuvert && PortesOuvert) || (AbriFerme && !PortesOuvert))
   {
     return false;
   }
@@ -857,7 +858,7 @@ bool isStopAllowed()
     return false;
   }
   else
-  // Stop will be attempted
+    // Stop will be attempted
   {
     return true;
   }

@@ -10,7 +10,7 @@ const int vLen = MAX_RESPONSE;
 /* MACROS */
 /**********/
 #define PortesOuvert  (!dRead(Po1) && !dRead(Po2))
-//#define PortesFerme   (dRead(Po1) && dRead(Po2)) 
+//#define PortesFerme   (dRead(Po1) && dRead(Po2))
 #define Porte1Ouvert  (!dRead(Po1))
 #define Porte2Ouvert  (!dRead(Po2))
 #define AbriFerme     (!dRead(AF))
