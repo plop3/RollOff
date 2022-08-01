@@ -58,7 +58,7 @@ IPAddress myDns(192, 168, 0, 254);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 
-EthernetServer server(9999);	// Serveur Indi
+//EthernetServer server(9999);	// Serveur Indi
 EthernetClient client;			// Client MQTT
 boolean alreadyConnected = false; 
 
