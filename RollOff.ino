@@ -25,6 +25,7 @@ bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 bool Remote = true;                 // Commande distante (+ de sécurité)
 bool LOCK = false;                  // Abri locké
+bool ArretRaspi = false;            // Raspi en cours d'arret  
 
 /*****************/
 /* PERIPHERIQUES */
@@ -100,6 +101,13 @@ void callbackMQTT(char* topic, byte* payload, unsigned int length) {
         break;
       case 't': // Eteint l'alimentation télescope
         cmd = 7;
+        break;
+      case 'h': // Heartbeat
+        if (!ArretRaspi && AbriFerme) 
+        {
+          timer.setTimeout(300000L, raspiStop);
+          ArretRaspi = true;
+        }
         break;
     }
   }
@@ -258,6 +266,7 @@ void traiteCommande(int commande) {
     case 11:
       fermePorte1();
       mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON" : "OFF");
+      break;
   }
 }
 
@@ -638,6 +647,13 @@ void updateMQTT() {
 }
 
 //---------- Fonctions Timer ----------
+
+void raspiStop()
+{
+  // Arret du raspberry (coupure de l'alimentation 12V)
+  StopTel;
+  mqtt.publish("abri-out/alimtel", "OFF");
+}
 
 void appuiLong()
 {
