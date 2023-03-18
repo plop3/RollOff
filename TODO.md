@@ -1,5 +1,6 @@
 TODO
 ====
+- Commande ARU distante
 - Installation capteur de pluie
 - LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri

@@ -33,7 +33,7 @@ const int vLen = MAX_RESPONSE;
 #define Brouge        !dRead(BROUGE)
 #define MoteurStatus  (dRead(ALIMMOT) == RON) // Alimentation du moteur abri
 #define Status12V     (dRead(ALIM12V) == RON) // Alimentation 12V
-//#define Park 	      dRead(PARK) 	      // Télescope parqué 
-#define Park          true
+#define Park 	      dRead(PARK) 	      // Télescope parqué 
+//#define Park          true
 #define Pluie         !dRead(A6)
 #define Baru          !dRead(BARU)
