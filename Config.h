@@ -1,6 +1,6 @@
 // Configuration de l'abri
 
-#define DEBUG             false   // Mode debug série
+#define DEBUG             false    // Mode debug série
 #define BAUDRATE 	        9600    // Vitesse du port série
 #define RON HIGH       		        // Etat On pour les relais (HIGH, LOW)
 #define ROFF !RON

@@ -12,7 +12,6 @@ const char* ERROR9 = "Request not implemented in controller";
 const char* ERROR10 = "Abort command ignored, roof already stationary";
 
 const char* VERSION_ID = "V1.2-0";
-#define MAX_RESPONSE 127
 #define MAX_INPUT 45
 #define MAX_MESSAGE 63
 #define ROOF_OPEN_MILLI 120000L

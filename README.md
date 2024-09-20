@@ -9,6 +9,7 @@ Bouton à clef pour ouverture de l'abri:
     Commandes identiques au bouton à clef.
     2 boutons arrêt d'urgence (1 intérieur, 1 extérieur)
     1 bouton rouge (ouverture/fermeture de la porte 1)
+    1 bouton noir (M/A de l'alimentation télescope)
     2 capteurs de position de l'abri (ouvert, fermé)
     1 capteur de position du télescope (parqué: true)
     2 capteurs d'ouverture des portes
@@ -34,3 +35,24 @@ MATERIEL
     1 carte 4 relais.
     1 alimentation 220V/12V
     1 alimentation 220V/5V (LEDs APA106, carte relais)
+
+BOUTONS
+- Clef / bouton vert:   appui court: ouverture/fermeture de l'abri
+                        appui long: ouverture/fermeture des portes
+- Bouton rouge:         Ouverture/fermeture de la porte 1
+- Bouton noir:          M/A de l'alimentation 12V télescope
+
+COMMANDES MQTT:
+l   Unlock abri
+L   Lock abri
+S   Status MQTT
+A   Ouverture abri
+a   Fermeture abri
+P   Ouverture des portes
+p   Fermeture des portes
+F   Ouverture porte 1
+f   Fermeture porte 1
+l   Eteint les éclairages
+T   Marche alimentation télescope
+t   Arret alimentation télescope
+H   Arret de l'abri (ARU)

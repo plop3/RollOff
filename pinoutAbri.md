@@ -21,7 +21,6 @@
 | Porte1        | 24 |
 | Porte2        | 25 |
 | Capteur pluie | A6 |
-| Park          | A5 |
 
 | Sorties        |     |
 |----------------|-----|
@@ -34,7 +33,6 @@
 | Alim moteur    | A2  |
 | Cmd moteur     | A1  |
 | Auxiliaire     | A0  |
-| Sortie Park    | 8   |
 | Reset          | A13 |
    
     

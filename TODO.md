@@ -5,7 +5,6 @@ TODO
 - LED d'état à l'intérieur (Allumée: télescope parqué, clignotante: arrêt d'urgence)
 - Ajout clignotement lent pendant déplacement abri
 - Ajout animation LEDs extérieur pendant attente (moteurOK, ouvre/ferme portes)
-- Inversion de l'état "PARK" (0: Télescope parqué) /!\ Modif à faire aussi sur auxiliaire (+ fabriquer un dongle pour la maintenance)
 - Ajout de barrières IR/US
 - Coupure automatique de l'alimentation 19V
 - Serveur Alpaca

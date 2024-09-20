@@ -2,6 +2,7 @@
 /* CONSTANTES */
 /**************/
 //---------- RollOffIno ----------
+#define MAX_RESPONSE 127
 const int cLen = 15;
 const int tLen = 15;
 const int vLen = MAX_RESPONSE;
@@ -17,8 +18,8 @@ const int vLen = MAX_RESPONSE;
 #define AbriOuvert    (!dRead(AO))
 #define Stop12V       digitalWrite(ALIM12V, RON)
 #define Start12V      digitalWrite(ALIM12V, ROFF)
-#define StopTel       digitalWrite(ALIMTEL, HIGH)
-#define StartTel      digitalWrite(ALIMTEL, LOW)
+#define StopAlimTel       digitalWrite(ALIMTEL, LOW)
+#define StartAlimTel      digitalWrite(ALIMTEL, HIGH)
 #define CmdMotOff     digitalWrite(CMDMOT, ROFF)
 #define CmdMotOn      digitalWrite(CMDMOT, RON)
 #define MotOn 	  	  digitalWrite(ALIMMOT, RON)
@@ -33,7 +34,5 @@ const int vLen = MAX_RESPONSE;
 #define Brouge        !dRead(BROUGE)
 #define MoteurStatus  (dRead(ALIMMOT) == RON) // Alimentation du moteur abri
 #define Status12V     (dRead(ALIM12V) == RON) // Alimentation 12V
-#define Park 	      dRead(PARK) 	      // Télescope parqué 
-//#define Park          true
 #define Pluie         !dRead(A6)
 #define Baru          !dRead(BARU)

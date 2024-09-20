@@ -2,18 +2,18 @@
   Pilotage automatique de l'abri du telescope
   Serge CLAUS
   GPL V3
-  Version 8.1
-  22/10/2018-16/06/2022
+  Version 9.0
+  22/10/2018-19/04/2024
   /*********************************/
 
 /***********/
 /* MODULES */
 /***********/
-#include "infos.h";			// Informations de connexion
-#include "RollOffIno.h";  	// Fonctions rollOffIno
-#include "Config.h";		// Fichier de configuration
-#include "Pinmap.h";		// Pins Arduino Mega
-#include "Constants.h";		// Constantes
+#include "infos.h"			// Informations de connexion
+#include "RollOffIno.h"  	// Fonctions rollOffIno
+#include "Config.h"		// Fichier de configuration
+#include "Pinmap.h"		// Pins Arduino Mega
+#include "Constants.h"		// Constantes
 
 /**********************/
 /* VARIABLES GLOBALES */
@@ -25,14 +25,14 @@ bool BappuiLong = false;            // Appui long sur le bouton vert ou la clef
 bool MotReady = false;              // Moteur abri pret (DELAIMOTEUR)
 bool Remote = true;                 // Commande distante (+ de sécurité)
 bool LOCK = false;                  // Abri locké
-bool ArretRaspi = false;            // Raspi en cours d'arret  
+bool Park = true;                   // Etat du park télescope
 
 /*****************/
 /* PERIPHERIQUES */
 /*****************/
 // Timer
-#include <SimpleTimer.h>
-SimpleTimer timer;
+#include <arduino-timer.h>
+auto timer = timer_create_default();
 
 // LEDs neopixel
 #include <Adafruit_NeoPixel.h>
@@ -61,7 +61,7 @@ IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
 
 EthernetServer server(9999);	// Serveur Indi
-EthernetClient client;			// Client MQTT
+EthernetClient client;			  // Client MQTT
 boolean alreadyConnected = false;
 
 // MQTT
@@ -102,20 +102,20 @@ void callbackMQTT(char* topic, byte* payload, unsigned int length) {
       case 't': // Eteint l'alimentation télescope
         cmd = 7;
         break;
-      case 'h': // Heartbeat
-        if (!ArretRaspi && AbriFerme) 
-        {
-          timer.setTimeout(300000L, raspiStop);
-          ArretRaspi = true;
-        }
+      case 'H':  // Arret de l'abri
+        cmd = 3;
         break;
     }
+  }
+  else if (strcmp(topic, "aux/park") == 0) {
+    sendMsg("MQTT Park");
+    Park=((char)payload[0]=='0') ? false : true;
   }
 }
 
 
 #include <PubSubClient.h>
-IPAddress broker(192, 168, 0, 4);
+IPAddress broker(192, 168, 0, 13);
 EthernetClient mqttclient;
 PubSubClient mqtt(broker, 1883, callbackMQTT, mqttclient);
 
@@ -144,9 +144,7 @@ void setup() {
   // Initialisation des relais
   pinMode(CMDMOT, OUTPUT);       // Coupure de la commande du moteur de déplacement
   pinMode(ALIMMOT, OUTPUT);      // Coupure du moteur d'abri
-  pinMode(ALIM12V, OUTPUT);      // Mise en marche de l'alimentation 12V
   pinMode(ALIMTEL, OUTPUT);      // Alimentation télescope
-  pinMode(SPARK, INPUT);         // Sortie demande de Park (collecteur ouvert)
 
   // Initialisation du LM298
   pinMode(P11, OUTPUT);
@@ -166,7 +164,6 @@ void setup() {
   pinMode(BROUGE, INPUT_PULLUP);// Bouton rouge
   pinMode(BLUMI, INPUT_PULLUP); // Bouton éclairage intérieur
   pinMode(BLUMT, INPUT_PULLUP); // Bouton éclairage table
-  pinMode(PARK, INPUT_PULLUP);  // TODO Inverser le signal (0: Télescope parqué)
   pinMode(PLUIE, INPUT);  		// Capteur de pluie analogique
 
   sendMsg("Deb init");
@@ -181,12 +178,6 @@ void setup() {
     startMot();
     sendMsg("Start M");
   }
-  // Abri ouvert, télescope alimenté
-  if (AbriOuvert) {
-    StartTel;
-    sendMsg("Start tel");
-  }
-
   // Etat initial des boutons d'éclairage
   BLUMIO = !dRead(BLUMI);
   BLUMTO = !dRead(BLUMT);
@@ -194,8 +185,8 @@ void setup() {
   // Ethernet
   Ethernet.begin(mac, ip, myDns, gateway, subnet);
 
-  // Mise à jour de l'état de l'abri toutes les 5mn (MQTT)
-  timer.setInterval(300000L, updateMQTT);
+  // Mise à jour de l'état de l'abri toutes les 1mn (MQTT)
+  timer.every(60000L, updateMQTT);
 }
 
 /*********************/
@@ -203,12 +194,12 @@ void setup() {
 /*********************/
 void loop() {
   // Attente des commandes
-  cmd = 0;                        			// Initialisation des commandes
+  cmd = 0;                        			    // Initialisation des commandes
   if (AbriOuvert && AbriFerme) stopAbri();  // Problème de capteurs
-  readBoutons();                			// Lecture des boutons
+  readBoutons();                			      // Lecture des boutons
   pool();
-  if (cmd) traiteCommande(cmd); 			// Traitement de la commande recue
-  if (MoteurStatus) survDepl(); 			// Surveillance déplacement intempestif de l'abri
+  if (cmd) traiteCommande(cmd); 			      // Traitement de la commande reçue
+  if (MoteurStatus) survDepl(); 			      // Surveillance déplacement intempestif de l'abri
   if (AbriOuvert || Porte1Ouvert || Porte2Ouvert  ) meteo();  // Sécurité météo
 }
 
@@ -217,6 +208,9 @@ void loop() {
 /*************/
 
 void traiteCommande(int commande) {
+  Serial.print("Commande:");
+  Serial.println(commande);
+  if (DEBUG) mqtt.publish("abri-out/debug", commande);
   // Traitement des commandes
   switch (commande) {
     case 0:	// Status MQTT
@@ -236,19 +230,16 @@ void traiteCommande(int commande) {
       stopAbri();
       mqtt.publish("abri-out/stop", "ON");
       break;
-    case 4:
-      lockAbri();
-      mqtt.publish("abri-out/locked", "ON");
-      break;
+
     case 5:
-      bougePorte2();
+      bougePorte1();
       break;
     case 6:
-      StartTel;
+      StartAlimTel;
       mqtt.publish("abri-out/alimtel", "ON");
       break;
     case 7:
-      StopTel;
+      StopAlimTel;
       mqtt.publish("abri-out/alimtel", "OFF");
       break;
     case 8:
@@ -267,6 +258,18 @@ void traiteCommande(int commande) {
       fermePorte1();
       mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON" : "OFF");
       break;
+    case 12:
+      changeAlimTel();
+      break;
+    case 13:
+      //lockAbri();
+      LOCK=true;
+      mqtt.publish("abri-out/locked", "ON");
+      break;
+    case 14:
+      LOCK=false;
+      mqtt.publish("abri-out/locked", "OFF");
+      break;
   }
 }
 
@@ -278,8 +281,10 @@ bool deplaceAbri() {
     sendMsg("Err depl");
     return false;
   }
-  if (!Park && !parkTelescope()) {				// Tentative de park du télescope
+  //if (!Park && !parkTelescope()) {				// Tentative de park du télescope
+  if (!Park) {
     sendMsg("Err park");
+    mqtt.publish("abri-out/park", "ERR");
     return false;
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri si besoin
@@ -321,6 +326,7 @@ bool ouvreAbri() {
   // Ouvre l'abri
   // Conditions:
   if (AbriOuvert) return true;  	// Abri déjà ouvert
+  if (LOCK) return false;         // Abri locké
   sendMsg("Ouv abri");
   // Gestion appui long (clef et bouton vert)
   if (PortesOuvert && BappuiLong) {
@@ -329,9 +335,8 @@ bool ouvreAbri() {
   }
   if (!MoteurStatus) startMot();      // Mise en marche du moteur de l'abri
   if (ouvrePortes()) {
-    if (!BappuiLong) {
+    if (!BappuiLong) {     
       if (deplaceAbri() && AbriOuvert) {
-        StartTel;                    // Mise en marche du télescope
         tone(BUZZER, 2000, 2000);
         return true;
       }
@@ -426,20 +431,20 @@ void fermePorte1() {
   }
 }
 
-void bougePorte2() {
+void bougePorte1() {
   // Ouvre/ferme la porte 2 (La porte 1 doit être ouverte)
-  if (!Porte1Ouvert) return;
-  if (Porte2Ouvert) {
-    FermeP2;
+  if (Porte1Ouvert) {
+    FermeP1;
   }
   else {
-    OuvreP2;
+    OuvreP1;
   }
 }
 
-void startTel() {
-  StartTel;
-  mqtt.publish("abri-out/alimtel", "ON");
+void changeAlimTel() {
+  // Bascule ON/OFF de l'alimentation télescope
+  digitalWrite(ALIMTEL,!digitalRead(ALIMTEL));
+  delay(500);
 }
 
 void attend(unsigned long delai, bool secu) {
@@ -462,7 +467,7 @@ void readBoutons() {
     tone(BUZZER, 2000, 300);
     BappuiLong = false;
     // Temporisation pour appui long
-    timer.setTimeout(BAPPUILONG, appuiLong);
+    timer.in(BAPPUILONG, appuiLong);
     // Déplacement de l'abri
     if (!AbriOuvert) {
       // Ouverture abri (abri non fermé)
@@ -480,7 +485,11 @@ void readBoutons() {
     Remote = false;
     cmd = 5;
   }
-  while (Bclef || Bvert || Brouge) timer.run(); // Attente de relachement des boutons
+  if (Bnoir) {
+    // Alimentation télescope
+    cmd = 12;
+  }
+  while (Bclef || Bvert || Brouge || Bnoir) timer.tick(); // Attente de relachement des boutons
 }
 
 void readARU() {
@@ -490,7 +499,7 @@ void readARU() {
 
 void pool() {
   // Timers
-  timer.run();
+  timer.tick();
   // Fonctions périodiques
   readIndi();     // Lecture des commandes Indi
   // Gestion ARU
@@ -574,10 +583,8 @@ void barre(byte barreau, byte valeur) {
 bool parkTelescope() {
   sendMsg("Park T");
   // Park du télescope
-  // Park du télescope par Pin
-  pinMode(SPARK, OUTPUT);
-  delay(300);
-  pinMode(SPARK, INPUT);
+  // Envoi d'un message mqtt à piabri
+  mqtt.publish("abri-out/setpark", "ON");
   // On attend 3mn max que le télescope soit parqué
   unsigned long tpsdebut = millis();
   do {
@@ -598,7 +605,7 @@ void startMot() {
   // Alimente le moteur de l'abri
   MotOn;
   MotReady = false;
-  timer.setTimeout(DELAIMOTEUR, tpsInitMoteur);
+  timer.in(DELAIMOTEUR, tpsInitMoteur);
 }
 
 void abriOff() {
@@ -628,32 +635,27 @@ void gereLeds() {
   // LED verte: télescope parqué
   digitalWrite(LEDV, Park);
   // LED bleu: Alimentation télescope
-  digitalWrite(LEDB, !digitalRead(ALIMTEL));
+  digitalWrite(LEDB, digitalRead(ALIMTEL));
 }
 
 void connectMQTT() {
   if (mqtt.connect("abri", MQTTUSER, MQTTPASSWD)) {
     updateMQTT();
     mqtt.subscribe("abri-in");
+    mqtt.subscribe("aux/park");
   }
 }
 
-void updateMQTT() {
+bool updateMQTT() {
   mqtt.publish("abri-out/open", AbriFerme ? "OFF" : "ON");
   mqtt.publish("abri-out/locked", LOCK ? "ON" : "OFF");
   mqtt.publish("abri-out/doors", PortesOuvert ? "ON" : "OFF");
   mqtt.publish("abri-out/door1", Porte1Ouvert ? "ON" : "OFF");
-  mqtt.publish("abri-out/alimtel", !digitalRead(ALIMTEL) ? "ON" : "OFF");
+  mqtt.publish("abri-out/alimtel", digitalRead(ALIMTEL) ? "ON" : "OFF");
+  return true;
 }
 
 //---------- Fonctions Timer ----------
-
-void raspiStop()
-{
-  // Arret du raspberry (coupure de l'alimentation 12V)
-  StopTel;
-  mqtt.publish("abri-out/alimtel", "OFF");
-}
 
 void appuiLong()
 {
@@ -785,6 +787,7 @@ void readData()
       else if (strcmp(target, "LOCK") == 0)     // Lock de l'abri
       {
         sendAck(value);
+        cmd=strcmp(value, "ON") == 0 ? 13 : 14 ;
       }
 
       // Prepare for the Auxiliary function
